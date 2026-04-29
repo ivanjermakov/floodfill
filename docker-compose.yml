@@ -1,0 +1,14 @@
+services:
+  floodfill:
+    container_name: floodfill
+    build:
+      context: .
+      dockerfile: Dockerfile
+    network_mode: "host"
+    volumes:
+      - ./database.db:/database.db:rw
+    environment:
+      - FLOODFILL_DIST=dist
+      - FLOODFILL_PORT=3005
+    restart: unless-stopped
+

@@ -1,0 +1,7 @@
+.idea
+node_modules
+dist
+pnpm-lock.yaml
+.netlify
+*.db*
+ustatus.json
