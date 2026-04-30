@@ -60,16 +60,25 @@ const Main: Component = () => {
                 const gpxRaw = await (await fetch(`gpx/${routeFile}`)).text()
                 const parser = new DOMParser()
                 const gpx = parser.parseFromString(gpxRaw, 'text/xml')
-                // TODO: elevation and timestamp
                 const readNumAttr = (e: Element, name: string) =>
                     Number.parseFloat(e.attributes.getNamedItem(name)!.value)
+                const readNumChild = (e: Element, name: string) => {
+                    const raw = e.getElementsByTagName(name).item(0)?.innerHTML
+                    if (raw) return Number.parseFloat(raw)
+                    return undefined
+                }
                 // https://github.com/timfraedrich/OutRun/issues/96
                 const trksegs = gpx.getElementsByTagName('trkseg')
                 const trkseg = trksegs.item(trksegs.length - 1)!
-                const trackpoints: Trackpoint[] = [...trkseg.getElementsByTagName('trkpt')].map(point => ({
-                    position: [readNumAttr(point, 'lon'), readNumAttr(point, 'lat')],
-                    timestamp: point.getElementsByTagName('time').item(0)?.innerHTML ?? undefined
-                }))
+                const trackpoints: Trackpoint[] = [...trkseg.getElementsByTagName('trkpt')].map(point => {
+                    const trackpoint = {
+                        position: [readNumAttr(point, 'lon'), readNumAttr(point, 'lat')],
+                        timestamp: point.getElementsByTagName('time').item(0)?.innerHTML ?? undefined
+                    }
+                    const elevation = readNumChild(point, 'ele')
+                    if (elevation !== undefined) trackpoint.position.push(elevation)
+                    return trackpoint
+                })
                 trackpoints.sort((a, b) => compareAsc(a.timestamp ?? '', b.timestamp ?? ''))
                 console.debug(trackpoints)
                 map.addLayer({
