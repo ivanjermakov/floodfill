@@ -4,4 +4,5 @@ dist
 pnpm-lock.yaml
 .netlify
 *.db*
-ustatus.json
+resource/
+public/gpx/

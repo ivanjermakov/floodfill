@@ -49,7 +49,9 @@ const Main: Component = () => {
                 'onthegomap-21.6-km-route.gpx',
                 'onthegomap-18.5-km-route.gpx',
                 'onthegomap-25.6-km-route.gpx',
-                'onthegomap-15.3-km-route.gpx'
+                'onthegomap-15.3-km-route.gpx',
+                'onthegomap-16.9-km-route.gpx',
+                'onthegomap-17.7-km-route.gpx'
             ].map(async routeFile => {
                 const gpxRaw = await (await fetch(`gpx/${routeFile}`)).text()
                 const parser = new DOMParser()
