@@ -1,3 +1,4 @@
+import { compareAsc } from 'date-fns/fp'
 /* @refresh reload */
 import { Position } from 'geojson'
 import { Map } from 'maplibre-gl'
@@ -26,14 +27,24 @@ const hash = (str: string) => {
     return hash >>> 0
 }
 
+type Trackpoint = {
+    position: Position
+    timestamp?: string
+}
+
+// TODO: server
+const gpxs = ['20260430-181917.gpx']
+
 const Main: Component = () => {
     onMount(async () => {
         const map = new Map({
             container: 'map',
             style: 'map/ofm-dark.json',
             attributionControl: false,
-            center: [21, 52.23],
-            zoom: 11
+            // center: [21, 52.23],
+            // zoom: 11
+            center: [21.02, 52.19],
+            zoom: 13
         })
         // map.dragRotate.disable()
         // map.keyboard.disable()
@@ -45,25 +56,22 @@ const Main: Component = () => {
             console.debug(map.getCenter(), map.getZoom())
         })
         await Promise.all(
-            [
-                'onthegomap-21.6-km-route.gpx',
-                'onthegomap-18.5-km-route.gpx',
-                'onthegomap-25.6-km-route.gpx',
-                'onthegomap-15.3-km-route.gpx',
-                'onthegomap-16.9-km-route.gpx',
-                'onthegomap-17.7-km-route.gpx'
-            ].map(async routeFile => {
+            gpxs.map(async routeFile => {
                 const gpxRaw = await (await fetch(`gpx/${routeFile}`)).text()
                 const parser = new DOMParser()
                 const gpx = parser.parseFromString(gpxRaw, 'text/xml')
                 // TODO: elevation and timestamp
                 const readNumAttr = (e: Element, name: string) =>
                     Number.parseFloat(e.attributes.getNamedItem(name)!.value)
-                const coordinates: Position[] = [...gpx.getElementsByTagName('trkpt')].map(point => [
-                    readNumAttr(point, 'lon'),
-                    readNumAttr(point, 'lat')
-                ])
-                console.debug(coordinates)
+                // https://github.com/timfraedrich/OutRun/issues/96
+                const trksegs = gpx.getElementsByTagName('trkseg')
+                const trkseg = trksegs.item(trksegs.length - 1)!
+                const trackpoints: Trackpoint[] = [...trkseg.getElementsByTagName('trkpt')].map(point => ({
+                    position: [readNumAttr(point, 'lon'), readNumAttr(point, 'lat')],
+                    timestamp: point.getElementsByTagName('time').item(0)?.innerHTML ?? undefined
+                }))
+                trackpoints.sort((a, b) => compareAsc(a.timestamp ?? '', b.timestamp ?? ''))
+                console.debug(trackpoints)
                 map.addLayer({
                     id: routeFile,
                     type: 'line',
@@ -76,7 +84,7 @@ const Main: Component = () => {
                                     type: 'Feature',
                                     geometry: {
                                         type: 'LineString',
-                                        coordinates
+                                        coordinates: trackpoints.map(t => t.position)
                                     },
                                     properties: {}
                                 }
