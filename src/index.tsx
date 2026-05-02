@@ -53,7 +53,8 @@ const Main: Component = () => {
         map.scrollZoom.enable()
         await new Promise(done => map.on('load', done))
 
-        const nodes: { lon: string; lat: string }[] = await (await fetch('/nodes')).json()
+        // const nodes: { lon: string; lat: string }[] = await (await fetch('/nodes')).json()
+        const nodes: { lon: string; lat: string }[] = await (await fetch('/nodes.json')).json()
         console.debug(nodes)
         map.addLayer({
             id: 'nodes',
@@ -128,7 +129,7 @@ const Main: Component = () => {
                     },
                     paint: {
                         'line-color': pathColors[Math.floor(hash(routeFile) % pathColors.length)],
-                        'line-width': 1
+                        'line-width': 2
                     }
                 })
             })
