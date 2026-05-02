@@ -53,6 +53,33 @@ const Main: Component = () => {
         map.scrollZoom.enable()
         await new Promise(done => map.on('load', done))
 
+        const nodes: { lon: string; lat: string }[] = await (await fetch('/nodes')).json()
+        console.debug(nodes)
+        map.addLayer({
+            id: 'nodes',
+            type: 'circle',
+            source: {
+                type: 'geojson',
+                data: {
+                    type: 'FeatureCollection',
+                    features: [
+                        {
+                            type: 'Feature',
+                            geometry: {
+                                type: 'MultiPoint',
+                                coordinates: nodes.map(n => [Number.parseFloat(n.lon), Number.parseFloat(n.lat)])
+                            },
+                            properties: {}
+                        }
+                    ]
+                }
+            },
+            paint: {
+                'circle-radius': 3,
+                'circle-color': '#555555'
+            }
+        })
+
         // map.on('move', () => console.debug(map.getCenter(), map.getZoom()))
         await Promise.all(
             gpxs.map(async routeFile => {
@@ -106,32 +133,6 @@ const Main: Component = () => {
                 })
             })
         )
-        const nodes: { lon: string; lat: string }[] = await (await fetch('/nodes')).json()
-        console.debug(nodes)
-        map.addLayer({
-            id: 'nodes',
-            type: 'circle',
-            source: {
-                type: 'geojson',
-                data: {
-                    type: 'FeatureCollection',
-                    features: [
-                        {
-                            type: 'Feature',
-                            geometry: {
-                                type: 'MultiPoint',
-                                coordinates: nodes.map(n => [Number.parseFloat(n.lon), Number.parseFloat(n.lat)])
-                            },
-                            properties: {}
-                        }
-                    ]
-                }
-            },
-            paint: {
-                'circle-radius': 3,
-                'circle-color': '#555555'
-            }
-        })
     })
 
     return (

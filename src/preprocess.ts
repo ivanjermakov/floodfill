@@ -5,20 +5,23 @@ import sqlite3 from 'sqlite3'
 
 const sql = String.raw
 
+const highwayNodes = new Set<string>()
 const nodes: string[][] = []
 const ways: string[][] = []
 const nodeways: string[][] = []
 const tags: string[][] = []
 
-const pipeline = async (
-    opentag: (ctx: { parent?: sax.Tag; nds: string[] }, e: sax.Tag) => void,
-    closetag: (ctx: { parent?: sax.Tag; nds: string[] }, e: string) => void
-) => {
-    // const fileStream = createReadStream('resource/planet_20.423,51.941_21.793,52.53.osm')
-    const fileStream = createReadStream('resource/planet_20.967,52.167_21.071,52.212.osm')
+type Context = {
+    parent?: sax.Tag
+    highway: boolean
+}
+
+const pipeline = async (opentag: (ctx: Context, e: sax.Tag) => void, closetag: (ctx: Context, e: string) => void) => {
+    const fileStream = createReadStream('resource/planet_20.423,51.941_21.793,52.53.osm')
+    // const fileStream = createReadStream('resource/planet_20.967,52.167_21.071,52.212.osm')
     const xmlStream = sax.createStream()
 
-    const ctx = { nds: [] }
+    const ctx: Context = { highway: false }
     let elements = 0
     xmlStream.on('opentag', e => opentag(ctx, e as sax.Tag))
     xmlStream.on('closetag', e => {
@@ -65,26 +68,23 @@ await db.run(
 await pipeline(
     (ctx, e) => {
         switch (e.name) {
-            case 'NODE': {
-                ctx.parent = e
-                break
-            }
-            case 'RELATION': {
-                ctx.parent = e
-                break
-            }
+            case 'NODE':
+            case 'RELATION':
             case 'WAY': {
                 ctx.parent = e
-                ctx.nds = []
+                ctx.highway = false
                 break
             }
             case 'ND': {
                 if (ctx.parent?.name !== 'WAY') break
-                ctx.nds.push(e.attributes.REF as string)
+                const nodeId = e.attributes.REF
+                nodeways.push([nodeId, ctx.parent!.attributes.ID])
+                highwayNodes.add(nodeId)
                 break
             }
             case 'TAG': {
                 if (ctx.parent?.name !== 'WAY') break
+                if (e.attributes.K === 'highway') ctx.highway = true
                 tags.push([ctx.parent.attributes.ID, e.attributes.K, e.attributes.V])
                 break
             }
@@ -99,33 +99,53 @@ await pipeline(
                 break
             }
             case 'WAY': {
-                ways.push([id])
-                for (const node of ctx.nds) {
-                    nodeways.push([node, id])
-                }
+                if (ctx.highway) ways.push([id])
                 break
             }
         }
     }
 )
 
-console.debug({ nodes: nodes.length, ways: nodeways.length, nodeways: nodeways.length, tags: tags.length })
+console.debug({
+    nodes: nodes.length,
+    ways: ways.length,
+    nodeways: nodeways.length,
+    tags: tags.length
+})
 await db.run('begin')
 console.debug('populating nodes')
+let progress = 0
+let stmt = await db.prepare(sql`insert into Node (id, lon, lat) values (?, ?, ?)`)
 for (const node of nodes) {
-    await db.run(sql`insert into Node (id, lon, lat) values (?, ?, ?)`, ...node)
+    if (highwayNodes.has(node[0])) {
+        await stmt.run(...node)
+    }
+    progress++
+    if (progress % 1_000_000 === 0) console.debug('progress', `${progress / 1_000_000}M`)
 }
 console.debug('populating ways')
+progress = 0
+stmt = await db.prepare(sql`insert into Way (id) values (?)`)
 for (const way of ways) {
-    await db.run(sql`insert into Way (id) values (?)`, ...way)
+    await stmt.run(...way)
+    progress++
+    if (progress % 1_000_000 === 0) console.debug('progress', `${progress / 1_000_000}M`)
 }
 console.debug('populating nodeways')
+progress = 0
+stmt = await db.prepare(sql`insert into NodeWay (nodeId, wayId) values (?, ?)`)
 for (const nodeway of nodeways) {
-    await db.run(sql`insert into NodeWay (nodeId, wayId) values (?, ?)`, ...nodeway)
+    await stmt.run(...nodeway)
+    progress++
+    if (progress % 1_000_000 === 0) console.debug('progress', `${progress / 1_000_000}M`)
 }
 console.debug('populating tags')
+progress = 0
+stmt = await db.prepare(sql`insert into Tag (parentId, k, v) values (?, ?, ?)`)
 for (const tag of tags) {
-    await db.run(sql`insert into Tag (parentId, k, v) values (?, ?, ?)`, ...tag)
+    await stmt.run(...tag)
+    progress++
+    if (progress % 1_000_000 === 0) console.debug('progress', `${progress / 1_000_000}M`)
 }
 await db.run('commit')
 
