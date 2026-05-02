@@ -8,7 +8,6 @@ const sql = String.raw
 const pipeline = async (opentag: (ctx: { parent?: sax.Tag; nds: string[] }, e: sax.Tag) => void) => {
     // const fileStream = createReadStream('resource/planet_20.423,51.941_21.793,52.53.osm')
     const fileStream = createReadStream('resource/planet_20.967,52.167_21.071,52.212.osm')
-    // const fileStream = createReadStream('resource/small.osm')
     const xmlStream = sax.createStream()
 
     const ctx = { nds: [] }
@@ -22,7 +21,12 @@ const pipeline = async (opentag: (ctx: { parent?: sax.Tag; nds: string[] }, e: s
     await new Promise(done => xmlStream.on('end', done))
 }
 
-const db = await open({ filename: `resource/data_${new Date().getTime()}.db`, driver: sqlite3.Database })
+const db = await open({
+    // filename: `resource/data_${new Date().getTime()}.db`,
+    filename: `database.db`,
+    driver: sqlite3.Database
+})
+await Promise.all(['Node', 'Way', 'NodeWay'].map(t => db.run(sql`drop table if exists ${t}`)))
 await db.run(
     sql`create table Node (
         id TEXT UNIQUE NOT NULL,

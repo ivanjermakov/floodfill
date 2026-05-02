@@ -3,7 +3,7 @@ import { IncomingMessage, ServerResponse, createServer } from 'http'
 import { extname, join, normalize } from 'path'
 import { stat } from 'fs/promises'
 import { exit } from 'process'
-import { db, initDb } from './db'
+import { db, initDb, sql } from './db'
 import { debug, error, info, request } from './log'
 
 const streamFile = (filePath: string, res: ServerResponse): void => {
@@ -61,6 +61,10 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse): Promise
     const host = req.headers.host ?? 'localhost'
     const rawUrl = `http://${host}${req.url ?? '/'}`
     const url = new URL(rawUrl)
+
+    if (url.pathname === '/nodes') {
+        db.run(sql`select n.lat, n.lon from Way w join NodeWay nw on nw.wayId = w.id join Node n on n.id = nw.nodeId;`)
+    }
 
     if (await tryServeFile(url.pathname, res)) {
         return
