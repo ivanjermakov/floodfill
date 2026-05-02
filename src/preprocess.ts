@@ -5,17 +5,26 @@ import sqlite3 from 'sqlite3'
 
 const sql = String.raw
 
-const pipeline = async (opentag: (ctx: { parent?: sax.Tag; nds: string[] }, e: sax.Tag) => void) => {
-    const fileStream = createReadStream('resource/planet_20.423,51.941_21.793,52.53.osm')
-    // const fileStream = createReadStream('resource/planet_20.967,52.167_21.071,52.212.osm')
+const nodes: string[][] = []
+const ways: string[][] = []
+const nodeways: string[][] = []
+const tags: string[][] = []
+
+const pipeline = async (
+    opentag: (ctx: { parent?: sax.Tag; nds: string[] }, e: sax.Tag) => void,
+    closetag: (ctx: { parent?: sax.Tag; nds: string[] }, e: string) => void
+) => {
+    // const fileStream = createReadStream('resource/planet_20.423,51.941_21.793,52.53.osm')
+    const fileStream = createReadStream('resource/planet_20.967,52.167_21.071,52.212.osm')
     const xmlStream = sax.createStream()
 
     const ctx = { nds: [] }
     let elements = 0
-    xmlStream.on('opentag', e => {
-        opentag(ctx, e as sax.Tag)
+    xmlStream.on('opentag', e => opentag(ctx, e as sax.Tag))
+    xmlStream.on('closetag', e => {
+        closetag(ctx, e)
         elements++
-        if (elements % 1_000_000 === 0) console.debug('progress', elements)
+        if (elements % 1_000_000 === 0) console.debug('progress', `${elements / 1_000_000}M`)
     })
     fileStream.pipe(xmlStream)
     await new Promise(done => xmlStream.on('end', done))
@@ -26,7 +35,7 @@ const db = await open({
     filename: `database.db`,
     driver: sqlite3.Database
 })
-await Promise.all(['Node', 'Way', 'NodeWay'].map(t => db.run(sql`drop table if exists ${t}`)))
+await Promise.all(['Node', 'Way', 'NodeWay', 'Tag'].map(t => db.run(sql`drop table if exists ${t}`)))
 await db.run(
     sql`create table Node (
         id TEXT UNIQUE NOT NULL,
@@ -36,8 +45,7 @@ await db.run(
 )
 await db.run(
     sql`create table Way (
-        id TEXT UNIQUE NOT NULL,
-        highway TEXT
+        id TEXT UNIQUE NOT NULL
     )`
 )
 await db.run(
@@ -46,91 +54,82 @@ await db.run(
         wayId TEXT NOT NULL
     )`
 )
+await db.run(
+    sql`create table Tag (
+        parentId TEXT NOT NULL,
+        k TEXT NOT NULL,
+        v TEXT NOT NULL
+    )`
+)
 
-type Result = {
-    nodes: Record<string, { lon: string; lat: string } | null>
-    ways: Record<string, { highway: string; nds: string[] }>
-}
-
-const result: Result = {
-    nodes: {},
-    ways: {}
-}
-
-await pipeline((ctx, e) => {
-    switch (e.name) {
-        case 'NODE': {
-            ctx.parent = e
-            break
+await pipeline(
+    (ctx, e) => {
+        switch (e.name) {
+            case 'NODE': {
+                ctx.parent = e
+                break
+            }
+            case 'RELATION': {
+                ctx.parent = e
+                break
+            }
+            case 'WAY': {
+                ctx.parent = e
+                ctx.nds = []
+                break
+            }
+            case 'ND': {
+                if (ctx.parent?.name !== 'WAY') break
+                ctx.nds.push(e.attributes.REF as string)
+                break
+            }
+            case 'TAG': {
+                if (ctx.parent?.name !== 'WAY') break
+                tags.push([ctx.parent.attributes.ID, e.attributes.K, e.attributes.V])
+                break
+            }
         }
-        case 'RELATION': {
-            ctx.parent = e
-            break
-        }
-        case 'WAY': {
-            ctx.parent = e
-            ctx.nds = []
-            break
-        }
-        case 'ND': {
-            if (ctx.parent?.name !== 'WAY') break
-            ctx.nds.push(e.attributes.REF as string)
-            break
-        }
-        case 'TAG': {
-            if (ctx.parent?.name !== 'WAY') break
-            if (e.attributes.K === 'highway') {
-                const id = ctx.parent.attributes.ID as string
-                result.ways[id] = { highway: e.attributes.V, nds: ctx.nds }
-                for (const nd of ctx.nds) {
-                    result.nodes[nd] = null
+    },
+    (ctx, e) => {
+        if (e !== ctx.parent?.name) return
+        const id = ctx.parent.attributes.ID as string
+        switch (e) {
+            case 'NODE': {
+                nodes.push([id, ctx.parent.attributes.LON, ctx.parent.attributes.LAT])
+                break
+            }
+            case 'WAY': {
+                ways.push([id])
+                for (const node of ctx.nds) {
+                    nodeways.push([node, id])
                 }
+                break
             }
-            break
         }
     }
-})
-console.debug('highway ways', Object.keys(result.ways).length)
+)
 
-await pipeline((_ctx, e) => {
-    switch (e.name) {
-        case 'NODE': {
-            const id = e.attributes.ID as string
-            if (result.nodes[id] === null) {
-                result.nodes[id] = { lon: e.attributes.LON as string, lat: e.attributes.LAT as string }
-            }
-            break
-        }
-    }
-})
-console.debug('highway nodes', Object.values(result.nodes).filter(n => n !== null).length)
-
+console.debug({ nodes: nodes.length, ways: nodeways.length, nodeways: nodeways.length, tags: tags.length })
+await db.run('begin')
 console.debug('populating nodes')
-await db.run('begin')
-const nodeEntries = Object.entries(result.nodes)
-for (const [nodeId, node] of nodeEntries) {
-    if (node) {
-        await db.run(sql`insert into Node (id, lon, lat) values (?, ?, ?)`, nodeId, node.lon, node.lat)
-    }
+for (const node of nodes) {
+    await db.run(sql`insert into Node (id, lon, lat) values (?, ?, ?)`, ...node)
 }
-await db.run('commit')
-
 console.debug('populating ways')
-await db.run('begin')
-for (const [wayId, way] of Object.entries(result.ways)) {
-    await db.run(sql`insert into Way (id, highway) values (?, ?)`, wayId, way.highway)
+for (const way of ways) {
+    await db.run(sql`insert into Way (id) values (?)`, ...way)
 }
-await db.run('commit')
-
 console.debug('populating nodeways')
-await db.run('begin')
-for (const [wayId, way] of Object.entries(result.ways)) {
-    for (const node of way.nds) {
-        if (node) await db.run(sql`insert into NodeWay (nodeId, wayId) values (?, ?)`, node, wayId)
-    }
+for (const nodeway of nodeways) {
+    await db.run(sql`insert into NodeWay (nodeId, wayId) values (?, ?)`, ...nodeway)
+}
+console.debug('populating tags')
+for (const tag of tags) {
+    await db.run(sql`insert into Tag (parentId, k, v) values (?, ?, ?)`, ...tag)
 }
 await db.run('commit')
 
 console.debug('creating indexes')
 await db.run(sql`create index nodeWayNodeIdIdx on NodeWay(nodeId)`)
 await db.run(sql`create index nodeWayWayIdIdx on NodeWay(wayId)`)
+await db.run(sql`create index tagParentIdIdx on Tag(parentId)`)
