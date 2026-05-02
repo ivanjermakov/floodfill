@@ -68,7 +68,13 @@ select n.lat, n.lon
     from NodeWay nw
     join Way w on w.id = nw.wayId
     join Node n on n.id = nw.nodeId
-    where w.highway in ('cycleway', 'path');
+    where
+        exists (select * from Tag t where t.parentId = w.id and (t.k = 'highway' and t.v = 'cycleway'))
+        or (select count(*)
+            from Tag t where t.parentId = w.id and
+                ((t.k = 'highway' and t.v = 'path') or (t.k = 'bicycle' and t.v = 'designated'))
+        ) = 2
+    ;
 `)
         res.setHeader('Content-Type', contentType['.json'])
         res.write(JSON.stringify(raw))
