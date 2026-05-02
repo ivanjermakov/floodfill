@@ -63,7 +63,18 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse): Promise
     const url = new URL(rawUrl)
 
     if (url.pathname === '/nodes') {
-        db.run(sql`select n.lat, n.lon from Way w join NodeWay nw on nw.wayId = w.id join Node n on n.id = nw.nodeId;`)
+        const raw = await db.all(sql`
+select n.lat, n.lon
+    from NodeWay nw
+    join Way w on w.id = nw.wayId
+    join Node n on n.id = nw.nodeId
+    where w.highway in ('cycleway', 'path');
+`)
+        res.setHeader('Content-Type', contentType['.json'])
+        res.write(JSON.stringify(raw))
+        res.statusCode = 200
+        res.end()
+        return
     }
 
     if (await tryServeFile(url.pathname, res)) {

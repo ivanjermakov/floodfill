@@ -6,8 +6,8 @@ import sqlite3 from 'sqlite3'
 const sql = String.raw
 
 const pipeline = async (opentag: (ctx: { parent?: sax.Tag; nds: string[] }, e: sax.Tag) => void) => {
-    // const fileStream = createReadStream('resource/planet_20.423,51.941_21.793,52.53.osm')
-    const fileStream = createReadStream('resource/planet_20.967,52.167_21.071,52.212.osm')
+    const fileStream = createReadStream('resource/planet_20.423,51.941_21.793,52.53.osm')
+    // const fileStream = createReadStream('resource/planet_20.967,52.167_21.071,52.212.osm')
     const xmlStream = sax.createStream()
 
     const ctx = { nds: [] }
@@ -69,7 +69,7 @@ await pipeline((ctx, e) => {
         }
         case 'WAY': {
             ctx.parent = e
-            ctx.nds.length = 0
+            ctx.nds = []
             break
         }
         case 'ND': {
@@ -80,11 +80,11 @@ await pipeline((ctx, e) => {
         case 'TAG': {
             if (ctx.parent?.name !== 'WAY') break
             if (e.attributes.K === 'highway') {
+                const id = ctx.parent.attributes.ID as string
+                result.ways[id] = { highway: e.attributes.V, nds: ctx.nds }
                 for (const nd of ctx.nds) {
                     result.nodes[nd] = null
                 }
-                const id = ctx.parent.attributes.ID as string
-                result.ways[id] = { highway: e.attributes.V, nds: ctx.nds }
             }
             break
         }
@@ -103,7 +103,7 @@ await pipeline((_ctx, e) => {
         }
     }
 })
-console.debug('highway nodes', Object.keys(result.nodes).length)
+console.debug('highway nodes', Object.values(result.nodes).filter(n => n !== null).length)
 
 console.debug('populating nodes')
 await db.run('begin')
@@ -117,15 +117,14 @@ await db.run('commit')
 
 console.debug('populating ways')
 await db.run('begin')
-const wayEntries = Object.entries(result.ways)
-for (const [wayId, way] of wayEntries) {
+for (const [wayId, way] of Object.entries(result.ways)) {
     await db.run(sql`insert into Way (id, highway) values (?, ?)`, wayId, way.highway)
 }
 await db.run('commit')
 
 console.debug('populating nodeways')
 await db.run('begin')
-for (const [wayId, way] of wayEntries) {
+for (const [wayId, way] of Object.entries(result.ways)) {
     for (const node of way.nds) {
         if (node) await db.run(sql`insert into NodeWay (nodeId, wayId) values (?, ?)`, node, wayId)
     }

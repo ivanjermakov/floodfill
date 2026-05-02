@@ -1,5 +1,6 @@
-import { compareAsc } from 'date-fns/fp'
 /* @refresh reload */
+
+import { compareAsc } from 'date-fns/fp'
 import { Position } from 'geojson'
 import { Map } from 'maplibre-gl'
 import { Component, onMount } from 'solid-js'
@@ -52,9 +53,7 @@ const Main: Component = () => {
         map.scrollZoom.enable()
         await new Promise(done => map.on('load', done))
 
-        map.on('move', () => {
-            console.debug(map.getCenter(), map.getZoom())
-        })
+        // map.on('move', () => console.debug(map.getCenter(), map.getZoom()))
         await Promise.all(
             gpxs.map(async routeFile => {
                 const gpxRaw = await (await fetch(`gpx/${routeFile}`)).text()
@@ -107,6 +106,32 @@ const Main: Component = () => {
                 })
             })
         )
+        const nodes: { lon: string; lat: string }[] = await (await fetch('/nodes')).json()
+        console.debug(nodes)
+        map.addLayer({
+            id: 'nodes',
+            type: 'circle',
+            source: {
+                type: 'geojson',
+                data: {
+                    type: 'FeatureCollection',
+                    features: [
+                        {
+                            type: 'Feature',
+                            geometry: {
+                                type: 'MultiPoint',
+                                coordinates: nodes.map(n => [Number.parseFloat(n.lon), Number.parseFloat(n.lat)])
+                            },
+                            properties: {}
+                        }
+                    ]
+                }
+            },
+            paint: {
+                'circle-radius': 3,
+                'circle-color': '#555555'
+            }
+        })
     })
 
     return (
