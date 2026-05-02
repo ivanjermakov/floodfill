@@ -66,16 +66,35 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse): Promise
         const raw = await db.all(sql`
 select n.lat, n.lon
     from NodeWay nw
-    join Way w on w.id = nw.wayId
+    join (
+        select * from Way w
+        where
+            (exists(
+                select 1 from Tag t
+                where t.parentId = w.id and (t.k = 'highway' AND t.v = 'cycleway')
+                limit 1
+            ) and not exists(
+                select 1 from Tag t
+                where t.parentId = w.id and (t.k = 'cycleway' and t.v = 'crossing')
+                limit 1
+            ))
+            or
+            (exists(
+                select 1 from Tag t
+                where t.parentId = w.id and t.k = 'highway' and t.v = 'path'
+                limit 1
+            ) and exists(
+                select 1 from Tag t
+                where t.parentId = w.id and (t.k = 'bicycle' and t.v = 'designated')
+                limit 1
+            ) and not exists(
+                select 1 from Tag t
+                where t.parentId = w.id and (t.k = 'cycleway' and t.v = 'crossing')
+                limit 1
+            ))
+    ) w on w.id = nw.wayId
     join Node n on n.id = nw.nodeId
-    where
-        exists (select * from Tag t where t.parentId = w.id and (t.k = 'highway' and t.v = 'cycleway'))
-        or (select count(*)
-            from Tag t where t.parentId = w.id and
-                ((t.k = 'highway' and t.v = 'path') or (t.k = 'bicycle' and t.v = 'designated'))
-        ) = 2
-    ;
-`)
+;`)
         res.setHeader('Content-Type', contentType['.json'])
         res.write(JSON.stringify(raw))
         res.statusCode = 200
