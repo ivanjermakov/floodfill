@@ -13,6 +13,7 @@
     "license": "MIT",
     "packageManager": "pnpm@10.32.0",
     "devDependencies": {
+        "@types/d3": "7.4.3",
         "@types/geojson": "7946.0.16",
         "@types/node": "25.5.0",
         "@types/sax": "1.2.7",
@@ -23,6 +24,7 @@
         "vite-plugin-solid": "2.11.11"
     },
     "dependencies": {
+        "d3": "7.9.0",
         "date-fns": "4.1.0",
         "geojson": "0.5.0",
         "maplibre-gl": "5.24.0",

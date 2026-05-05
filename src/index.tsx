@@ -1,9 +1,10 @@
 /* @refresh reload */
 
+import { extent, line, max, min, scaleLinear, scaleTime, select } from 'd3'
 import { compareAsc, compareDesc, differenceInSeconds, format } from 'date-fns'
 import { Position } from 'geojson'
 import { Map } from 'maplibre-gl'
-import { Component, For, createSignal, onMount } from 'solid-js'
+import { Component, For, Show, createEffect, createSignal, onMount } from 'solid-js'
 import { render } from 'solid-js/web'
 import { distanceHaversine } from './geo'
 import './index.css'
@@ -51,6 +52,8 @@ type Trackpoint = {
 const gpxs = ['20260430-181917.gpx']
 
 const [$tracks, setTracks] = createSignal<Track[]>([])
+const [$trackActive, setTrackActive] = createSignal<Track | undefined>()
+let elevationChartSvg!: SVGSVGElement
 
 const Main: Component = () => {
     onMount(async () => {
@@ -134,7 +137,7 @@ const Main: Component = () => {
 
                     if (position.length > 2 !== undefined) {
                         // since altitude changes are less volatile, apply heavier filtering
-                        const k = 0.1
+                        const k = 0.05
                         position[2] = position[2] * (1 - k) + p[2] * k
                     }
                     filtered.push({ position: [...position], timestamp: point.timestamp })
@@ -206,6 +209,33 @@ const Main: Component = () => {
         )
     })
 
+    createEffect(() => {
+        const trackActive = $trackActive()
+        if (!trackActive) return
+
+        const width = elevationChartSvg.clientWidth
+        const height = elevationChartSvg.clientHeight
+        const elevationChart = select(elevationChartSvg)
+        const data = trackActive.filtered.map(p => ({ date: new Date(p.timestamp!), value: p.position[2] }))
+        const xScale = scaleTime()
+            .domain(extent(data, d => d.date) as [Date, Date])
+            .range([0, width])
+        const yScale = scaleLinear()
+            .domain([min(data, d => d.value)!, max(data, d => d.value)!])
+            .range([height, 0])
+        const d = line<{ date: Date; value: number }>()
+            .x(d => xScale(d.date))
+            .y(d => yScale(d.value))
+
+        elevationChart
+            .append('path')
+            .datum(data)
+            .attr('fill', 'none')
+            .attr('stroke', pathColors[0])
+            .attr('stroke-width', 2)
+            .attr('d', d)
+    })
+
     return (
         <>
             <div id="map" />
@@ -214,7 +244,10 @@ const Main: Component = () => {
                     <tbody>
                         <For each={$tracks()}>
                             {track => (
-                                <tr>
+                                <tr
+                                    onClick={() => setTrackActive(track)}
+                                    classList={{ active: track.timestamp === $trackActive()?.timestamp }}
+                                >
                                     <td>{format(track.timestamp, 'yyyy-MM-dd HH:mm')}</td>
                                     <td>{track.distance.toFixed()}m</td>
                                     <td>{track.duration ? `${track.duration.toFixed()}s` : 'N/A'}</td>
@@ -228,6 +261,11 @@ const Main: Component = () => {
                         </For>
                     </tbody>
                 </table>
+                <Show when={$trackActive()}>
+                    <div class="active">
+                        <svg ref={elevationChartSvg} />
+                    </div>
+                </Show>
             </div>
         </>
     )
