@@ -1,9 +1,9 @@
 /* @refresh reload */
 
-import { compareAsc, differenceInSeconds } from 'date-fns'
+import { compareAsc, compareDesc, differenceInSeconds, format } from 'date-fns'
 import { Position } from 'geojson'
 import { Map } from 'maplibre-gl'
-import { Component, onMount } from 'solid-js'
+import { Component, For, createSignal, onMount } from 'solid-js'
 import { render } from 'solid-js/web'
 import { distanceHaversine } from './geo'
 import './index.css'
@@ -49,6 +49,8 @@ type Trackpoint = {
 
 // TODO: server
 const gpxs = ['20260430-181917.gpx']
+
+const [$tracks, setTracks] = createSignal<Track[]>([])
 
 const Main: Component = () => {
     onMount(async () => {
@@ -97,8 +99,8 @@ const Main: Component = () => {
         })
 
         const tracks: Track[] = await Promise.all(
-            gpxs.map(async routeFile => {
-                const gpxRaw = await (await fetch(`gpx/${routeFile}`)).text()
+            gpxs.map(async trackFile => {
+                const gpxRaw = await (await fetch(`gpx/${trackFile}`)).text()
                 const parser = new DOMParser()
                 const gpx = parser.parseFromString(gpxRaw, 'text/xml')
                 const readNumAttr = (e: Element, name: string) =>
@@ -156,7 +158,7 @@ const Main: Component = () => {
                     }
                 }
                 const track: Track = {
-                    name: routeFile,
+                    name: trackFile,
                     timestamp:
                         trackpoints[0].timestamp ??
                         gpx.getElementsByTagName('time').item(0)?.innerHTML ??
@@ -170,7 +172,10 @@ const Main: Component = () => {
                 return track
             })
         )
+        tracks.sort((a, b) => compareDesc(a.timestamp, b.timestamp))
+        setTracks(tracks)
         console.debug(tracks)
+
         await Promise.all(
             tracks.map(async track => {
                 map.addLayer({
@@ -204,6 +209,26 @@ const Main: Component = () => {
     return (
         <>
             <div id="map" />
+            <div id="overlay">
+                <table class="tracks">
+                    <tbody>
+                        <For each={$tracks()}>
+                            {track => (
+                                <tr>
+                                    <td>{format(track.timestamp, 'yyyy-MM-dd HH:mm')}</td>
+                                    <td>{track.distance.toFixed()}m</td>
+                                    <td>{track.duration ? `${track.duration.toFixed()}s` : 'N/A'}</td>
+                                    <td>
+                                        {track.duration
+                                            ? `${((track.distance / track.duration) * 3.6).toFixed(1)}kph`
+                                            : 'N/A'}
+                                    </td>
+                                </tr>
+                            )}
+                        </For>
+                    </tbody>
+                </table>
+            </div>
         </>
     )
 }
