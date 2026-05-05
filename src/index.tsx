@@ -1,10 +1,11 @@
 /* @refresh reload */
 
-import { compareAsc } from 'date-fns/fp'
+import { compareAsc, differenceInSeconds } from 'date-fns'
 import { Position } from 'geojson'
 import { Map } from 'maplibre-gl'
 import { Component, onMount } from 'solid-js'
 import { render } from 'solid-js/web'
+import { distanceHaversine } from './geo'
 import './index.css'
 
 const pathColors = [
@@ -26,6 +27,18 @@ const hash = (str: string) => {
         hash = (hash << 5) + hash + str.charCodeAt(i)
     }
     return hash >>> 0
+}
+
+type Track = {
+    name: string
+    timestamp: string
+    points: Trackpoint[]
+    /**
+     * Seconds
+     */
+    duration?: number
+    distance: number
+    elevation: { asc: number; desc: number }
 }
 
 type Trackpoint = {
@@ -50,6 +63,7 @@ const Main: Component = () => {
         // map.dragRotate.disable()
         // map.keyboard.disable()
         // map.touchZoomRotate.disableRotation()
+        // map.on('move', () => console.debug(map.getCenter(), map.getZoom()))
         map.scrollZoom.enable()
         await new Promise(done => map.on('load', done))
 
@@ -81,8 +95,7 @@ const Main: Component = () => {
             }
         })
 
-        // map.on('move', () => console.debug(map.getCenter(), map.getZoom()))
-        await Promise.all(
+        const tracks: Track[] = await Promise.all(
             gpxs.map(async routeFile => {
                 const gpxRaw = await (await fetch(`gpx/${routeFile}`)).text()
                 const parser = new DOMParser()
@@ -107,9 +120,43 @@ const Main: Component = () => {
                     return trackpoint
                 })
                 trackpoints.sort((a, b) => compareAsc(a.timestamp ?? '', b.timestamp ?? ''))
-                console.debug(trackpoints)
+                const timeStart = trackpoints.at(0)?.timestamp
+                const timeEnd = trackpoints.at(-1)?.timestamp
+                let distance = 0
+                const elevation = { asc: 0, desc: 0 }
+                for (let i = 0; i < trackpoints.length - 1; i++) {
+                    const a = trackpoints[i].position
+                    const b = trackpoints[i + 1].position
+                    // TODO: coastline paradox
+                    distance += distanceHaversine(a[1], a[0], b[1], b[0])
+                    if (a.length > 2 && b.length > 2) {
+                        // TODO: coastline paradox
+                        if (a[2] < b[2]) {
+                            elevation.asc += b[2] - a[2]
+                        } else {
+                            elevation.desc += a[2] - b[2]
+                        }
+                    }
+                }
+                const track: Track = {
+                    name: routeFile,
+                    timestamp:
+                        trackpoints[0].timestamp ??
+                        gpx.getElementsByTagName('time').item(0)?.innerHTML ??
+                        new Date().toISOString(),
+                    points: trackpoints,
+                    duration: timeStart && timeEnd ? differenceInSeconds(timeEnd, timeStart) : undefined,
+                    distance,
+                    elevation
+                }
+                return track
+            })
+        )
+        console.debug(tracks)
+        await Promise.all(
+            tracks.map(async track => {
                 map.addLayer({
-                    id: routeFile,
+                    id: track.name,
                     type: 'line',
                     source: {
                         type: 'geojson',
@@ -120,7 +167,7 @@ const Main: Component = () => {
                                     type: 'Feature',
                                     geometry: {
                                         type: 'LineString',
-                                        coordinates: trackpoints.map(t => t.position)
+                                        coordinates: track.points.map(t => t.position)
                                     },
                                     properties: {}
                                 }
@@ -128,7 +175,7 @@ const Main: Component = () => {
                         }
                     },
                     paint: {
-                        'line-color': pathColors[Math.floor(hash(routeFile) % pathColors.length)],
+                        'line-color': pathColors[Math.floor(hash(track.name) % pathColors.length)],
                         'line-width': 2
                     }
                 })
