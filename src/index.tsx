@@ -33,6 +33,7 @@ type Track = {
     name: string
     timestamp: string
     points: Trackpoint[]
+    filtered: Trackpoint[]
     /**
      * Seconds
      */
@@ -120,17 +121,33 @@ const Main: Component = () => {
                     return trackpoint
                 })
                 trackpoints.sort((a, b) => compareAsc(a.timestamp ?? '', b.timestamp ?? ''))
+
+                const filtered: Trackpoint[] = []
+                const position = trackpoints[0].position
+                for (const point of trackpoints) {
+                    const p = point.position
+                    const k = 0.2
+                    position[0] = position[0] * (1 - k) + p[0] * k
+                    position[1] = position[1] * (1 - k) + p[1] * k
+
+                    if (position.length > 2 !== undefined) {
+                        // since altitude changes are less volatile, apply heavier filtering
+                        const k = 0.1
+                        position[2] = position[2] * (1 - k) + p[2] * k
+                    }
+                    filtered.push({ position: [...position], timestamp: point.timestamp })
+                }
+
                 const timeStart = trackpoints.at(0)?.timestamp
                 const timeEnd = trackpoints.at(-1)?.timestamp
                 let distance = 0
                 const elevation = { asc: 0, desc: 0 }
-                for (let i = 0; i < trackpoints.length - 1; i++) {
-                    const a = trackpoints[i].position
-                    const b = trackpoints[i + 1].position
-                    // TODO: coastline paradox
+                for (let i = 0; i < filtered.length - 1; i++) {
+                    const a = filtered[i].position
+                    const b = filtered[i + 1].position
                     distance += distanceHaversine(a[1], a[0], b[1], b[0])
-                    if (a.length > 2 && b.length > 2) {
-                        // TODO: coastline paradox
+
+                    if (b.length > 2 !== undefined) {
                         if (a[2] < b[2]) {
                             elevation.asc += b[2] - a[2]
                         } else {
@@ -145,6 +162,7 @@ const Main: Component = () => {
                         gpx.getElementsByTagName('time').item(0)?.innerHTML ??
                         new Date().toISOString(),
                     points: trackpoints,
+                    filtered,
                     duration: timeStart && timeEnd ? differenceInSeconds(timeEnd, timeStart) : undefined,
                     distance,
                     elevation
@@ -167,7 +185,7 @@ const Main: Component = () => {
                                     type: 'Feature',
                                     geometry: {
                                         type: 'LineString',
-                                        coordinates: track.points.map(t => t.position)
+                                        coordinates: track.filtered.map(t => t.position)
                                     },
                                     properties: {}
                                 }
