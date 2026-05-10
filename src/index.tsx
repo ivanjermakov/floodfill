@@ -1,6 +1,6 @@
 /* @refresh reload */
 
-import { extent, line, max, min, scaleLinear, scaleTime, select } from 'd3'
+import { axisBottom, axisLeft, extent, line, max, min, scaleLinear, scaleTime, select } from 'd3'
 import { compareAsc, compareDesc, differenceInSeconds, format } from 'date-fns'
 import { Position } from 'geojson'
 import { Map } from 'maplibre-gl'
@@ -49,14 +49,16 @@ type Trackpoint = {
 }
 
 // TODO: server
-const gpxs = ['20260430-181917.gpx', '20260507-185410.gpx']
+const gpxs = ['20260430-181917.gpx', '20260507-185410.gpx', '20260510-160805.gpx']
 
+const [$windowSize, setWindowSize] = createSignal<{ width: number; height: number }>()
 const [$tracks, setTracks] = createSignal<Track[]>([])
 const [$trackActive, setTrackActive] = createSignal<Track | undefined>()
 let elevationChartSvg!: SVGSVGElement
 
 const Main: Component = () => {
     onMount(async () => {
+        window.addEventListener('resize', () => setWindowSize({ width: window.innerWidth, height: window.innerHeight }))
         const map = new Map({
             container: 'map',
             style: 'map/ofm-dark.json',
@@ -210,30 +212,45 @@ const Main: Component = () => {
     })
 
     createEffect(() => {
+        $windowSize()
         const trackActive = $trackActive()
         if (!trackActive) return
 
         const width = elevationChartSvg.clientWidth
         const height = elevationChartSvg.clientHeight
-        const elevationChart = select(elevationChartSvg)
+        const margin = { top: 0, right: 0, bottom: 20, left: 30 }
+
+        const chart = select(elevationChartSvg)
         const data = trackActive.filtered.map(p => ({ date: new Date(p.timestamp!), value: p.position[2] }))
         const xScale = scaleTime()
             .domain(extent(data, d => d.date) as [Date, Date])
-            .range([0, width])
-        const yScale = scaleLinear()
+            .range([0, width - margin.left - margin.right])
+        const elevationScale = scaleLinear()
             .domain([min(data, d => d.value)!, max(data, d => d.value)!])
-            .range([height, 0])
+            .range([height - margin.top - margin.bottom, 0])
         const d = line<{ date: Date; value: number }>()
             .x(d => xScale(d.date))
-            .y(d => yScale(d.value))
+            .y(d => elevationScale(d.value))
 
-        elevationChart
+        chart.selectChildren().remove()
+        chart
             .append('path')
             .datum(data)
             .attr('fill', 'none')
             .attr('stroke', pathColors[0])
             .attr('stroke-width', 2)
+            .attr('transform', `translate(${margin.left},${margin.top})`)
             .attr('d', d)
+
+        chart
+            .append('g')
+            .attr('transform', `translate(${margin.left},${height - margin.bottom})`)
+            .call(axisBottom(xScale).ticks(20))
+
+        chart
+            .append('g')
+            .attr('transform', `translate(${margin.left}, ${margin.top})`)
+            .call(axisLeft(elevationScale).ticks(20))
     })
 
     return (

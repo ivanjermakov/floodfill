@@ -165,7 +165,7 @@ select {
 
         .active {
             margin-top: auto;
-            max-height: 50%;
+            height: min(50%, 20rem);
 
             svg {
                 width: 100%;
