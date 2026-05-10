@@ -55,6 +55,8 @@ type Trackpoint = {
 // TODO: server
 const gpxs = ['20260430-181917.gpx', '20260507-185410.gpx', '20260510-160805.gpx']
 
+let map!: Map
+
 const [$windowSize, setWindowSize] = createSignal<{ width: number; height: number }>()
 const [$tracks, setTracks] = createSignal<Track[]>([])
 const [$trackActive, setTrackActive] = createSignal<Track | undefined>()
@@ -63,14 +65,14 @@ let elevationChartSvg!: SVGSVGElement
 const Main: Component = () => {
     onMount(async () => {
         window.addEventListener('resize', () => setWindowSize({ width: window.innerWidth, height: window.innerHeight }))
-        const map = new Map({
+        map = new Map({
             container: 'map',
             style: 'map/ofm-dark.json',
             attributionControl: false,
-            // center: [21, 52.23],
-            // zoom: 11
-            center: [21.02, 52.19],
-            zoom: 13
+            center: [21, 52.23],
+            zoom: 11
+            // center: [21.02, 52.19],
+            // zoom: 13
         })
         // map.dragRotate.disable()
         // map.keyboard.disable()
@@ -172,7 +174,7 @@ const Main: Component = () => {
                         if (i === 0) filtered[i].speed = 0
                         const delta = differenceInSeconds(filtered[i + 1].timestamp!, filtered[i].timestamp!)
                         filtered[i + 1].speed = delta === 0 ? filtered[i].speed : (d / delta) * 3.6
-                        const k = 0.01
+                        const k = 0.1
                         filtered[i + 1].speed = (1 - k) * filtered[i].speed! + k * filtered[i + 1].speed!
                     }
                 }
@@ -191,10 +193,6 @@ const Main: Component = () => {
                 return track
             })
         )
-        tracks.sort((a, b) => compareDesc(a.timestamp, b.timestamp))
-        setTracks(tracks)
-        setTrackActive(tracks[0])
-        console.debug(tracks)
 
         await Promise.all(
             tracks.map(async track => {
@@ -224,11 +222,28 @@ const Main: Component = () => {
                 })
             })
         )
+
+        tracks.sort((a, b) => compareDesc(a.timestamp, b.timestamp))
+        setTracks(tracks)
+        // setTrackActive(tracks[0])
+        console.debug(tracks)
     })
 
     createEffect(() => {
         $windowSize()
         const trackActive = $trackActive()
+        const tracks = $tracks()
+
+        tracks
+            .filter(track => map.getLayer(track.name))
+            .forEach(track =>
+                map.setLayoutProperty(
+                    track.name,
+                    'visibility',
+                    trackActive === undefined || track.name === trackActive.name ? 'visible' : 'none'
+                )
+            )
+
         if (!trackActive) return
 
         const width = elevationChartSvg.clientWidth
@@ -252,7 +267,11 @@ const Main: Component = () => {
         chart
             .append('g')
             .attr('transform', `translate(${margin.left},${height - margin.bottom})`)
-            .call(axisBottom(xScale).ticks(20))
+            .call(
+                axisBottom(xScale)
+                    .tickFormat(d => format(d as Date, 'HH:mm'))
+                    .ticks(20)
+            )
 
         chart
             .append('path')
@@ -265,7 +284,7 @@ const Main: Component = () => {
         chart
             .append('g')
             .attr('transform', `translate(${margin.left}, ${margin.top})`)
-            .call(axisLeft(elevationScale).ticks(20))
+            .call(axisLeft(elevationScale).ticks(height / 20))
 
         if (trackActive.filtered[0].speed !== undefined) {
             const speedData = trackActive.filtered.map(p => ({
@@ -289,7 +308,7 @@ const Main: Component = () => {
             chart
                 .append('g')
                 .attr('transform', `translate(${width - margin.left}, ${margin.top})`)
-                .call(axisRight(speedScale).ticks(20))
+                .call(axisRight(speedScale).ticks(height / 20))
         }
     })
 
@@ -302,7 +321,7 @@ const Main: Component = () => {
                         <For each={$tracks()}>
                             {track => (
                                 <tr
-                                    onClick={() => setTrackActive(track)}
+                                    onClick={() => setTrackActive($trackActive() === track ? undefined : track)}
                                     classList={{ active: track.timestamp === $trackActive()?.timestamp }}
                                 >
                                     <td>{format(track.timestamp, 'yyyy-MM-dd HH:mm')}</td>
