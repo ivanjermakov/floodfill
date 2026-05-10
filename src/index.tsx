@@ -49,7 +49,7 @@ type Trackpoint = {
 }
 
 // TODO: server
-const gpxs = ['20260430-181917.gpx']
+const gpxs = ['20260430-181917.gpx', '20260507-185410.gpx']
 
 const [$tracks, setTracks] = createSignal<Track[]>([])
 const [$trackActive, setTrackActive] = createSignal<Track | undefined>()
