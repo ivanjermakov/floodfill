@@ -1,6 +1,6 @@
 /* @refresh reload */
 
-import { axisBottom, axisLeft, extent, line, max, min, scaleLinear, scaleTime, select } from 'd3'
+import { axisBottom, axisLeft, axisRight, extent, line, max, min, scaleLinear, scaleTime, select } from 'd3'
 import { compareAsc, compareDesc, differenceInSeconds, format } from 'date-fns'
 import { Position } from 'geojson'
 import { Map } from 'maplibre-gl'
@@ -46,6 +46,10 @@ type Track = {
 type Trackpoint = {
     position: Position
     timestamp?: string
+    /**
+     * kph
+     */
+    speed?: number
 }
 
 // TODO: server
@@ -142,7 +146,8 @@ const Main: Component = () => {
                         const k = 0.05
                         position[2] = position[2] * (1 - k) + p[2] * k
                     }
-                    filtered.push({ position: [...position], timestamp: point.timestamp })
+                    const f: Trackpoint = { position: [...position], timestamp: point.timestamp }
+                    filtered.push(f)
                 }
 
                 const timeStart = trackpoints.at(0)?.timestamp
@@ -152,7 +157,8 @@ const Main: Component = () => {
                 for (let i = 0; i < filtered.length - 1; i++) {
                     const a = filtered[i].position
                     const b = filtered[i + 1].position
-                    distance += distanceHaversine(a[1], a[0], b[1], b[0])
+                    const d = distanceHaversine(a[1], a[0], b[1], b[0])
+                    distance += d
 
                     if (b.length > 2 !== undefined) {
                         if (a[2] < b[2]) {
@@ -160,6 +166,14 @@ const Main: Component = () => {
                         } else {
                             elevation.desc += a[2] - b[2]
                         }
+                    }
+
+                    if (filtered[i].timestamp && filtered[i + 1].timestamp) {
+                        if (i === 0) filtered[i].speed = 0
+                        const delta = differenceInSeconds(filtered[i + 1].timestamp!, filtered[i].timestamp!)
+                        filtered[i + 1].speed = delta === 0 ? filtered[i].speed : (d / delta) * 3.6
+                        const k = 0.01
+                        filtered[i + 1].speed = (1 - k) * filtered[i].speed! + k * filtered[i + 1].speed!
                     }
                 }
                 const track: Track = {
@@ -179,6 +193,7 @@ const Main: Component = () => {
         )
         tracks.sort((a, b) => compareDesc(a.timestamp, b.timestamp))
         setTracks(tracks)
+        setTrackActive(tracks[0])
         console.debug(tracks)
 
         await Promise.all(
@@ -218,39 +233,64 @@ const Main: Component = () => {
 
         const width = elevationChartSvg.clientWidth
         const height = elevationChartSvg.clientHeight
-        const margin = { top: 0, right: 0, bottom: 20, left: 30 }
+        const margin = { top: 0, right: 30, bottom: 20, left: 30 }
 
         const chart = select(elevationChartSvg)
-        const data = trackActive.filtered.map(p => ({ date: new Date(p.timestamp!), value: p.position[2] }))
+        const elevationData = trackActive.filtered.map(p => ({ date: new Date(p.timestamp!), value: p.position[2] }))
         const xScale = scaleTime()
-            .domain(extent(data, d => d.date) as [Date, Date])
+            .domain(extent(elevationData, d => d.date) as [Date, Date])
             .range([0, width - margin.left - margin.right])
+
         const elevationScale = scaleLinear()
-            .domain([min(data, d => d.value)!, max(data, d => d.value)!])
+            .domain([min(elevationData, d => d.value)!, max(elevationData, d => d.value)!])
             .range([height - margin.top - margin.bottom, 0])
-        const d = line<{ date: Date; value: number }>()
+        const elevationLine = line<{ date: Date; value: number }>()
             .x(d => xScale(d.date))
             .y(d => elevationScale(d.value))
 
         chart.selectChildren().remove()
-        chart
-            .append('path')
-            .datum(data)
-            .attr('fill', 'none')
-            .attr('stroke', pathColors[0])
-            .attr('stroke-width', 2)
-            .attr('transform', `translate(${margin.left},${margin.top})`)
-            .attr('d', d)
-
         chart
             .append('g')
             .attr('transform', `translate(${margin.left},${height - margin.bottom})`)
             .call(axisBottom(xScale).ticks(20))
 
         chart
+            .append('path')
+            .datum(elevationData)
+            .attr('fill', 'none')
+            .attr('stroke', pathColors[0])
+            .attr('stroke-width', 2)
+            .attr('transform', `translate(${margin.left},${margin.top})`)
+            .attr('d', elevationLine)
+        chart
             .append('g')
             .attr('transform', `translate(${margin.left}, ${margin.top})`)
             .call(axisLeft(elevationScale).ticks(20))
+
+        if (trackActive.filtered[0].speed !== undefined) {
+            const speedData = trackActive.filtered.map(p => ({
+                date: new Date(p.timestamp!),
+                value: p.speed!
+            }))
+            const speedScale = scaleLinear()
+                .domain([0, Math.min(50, max(speedData, d => d.value)!)])
+                .range([height - margin.top - margin.bottom, 0])
+            const speedLine = line<{ date: Date; value: number }>()
+                .x(d => xScale(d.date))
+                .y(d => speedScale(d.value))
+            chart
+                .append('path')
+                .datum(speedData)
+                .attr('fill', 'none')
+                .attr('stroke', pathColors[1])
+                .attr('stroke-width', 2)
+                .attr('transform', `translate(${margin.left},${margin.top})`)
+                .attr('d', speedLine)
+            chart
+                .append('g')
+                .attr('transform', `translate(${width - margin.left}, ${margin.top})`)
+                .call(axisRight(speedScale).ticks(20))
+        }
     })
 
     return (
