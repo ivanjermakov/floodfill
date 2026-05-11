@@ -164,12 +164,18 @@ select {
         }
 
         .active {
-            margin-top: auto;
             height: min(50%, 20rem);
+            display: flex;
+            flex-direction: column;
+            margin-top: auto;
 
             svg {
                 width: 100%;
                 height: 100%;
+            }
+
+            span {
+                white-space: pre;
             }
         }
     }

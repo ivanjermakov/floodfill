@@ -1,6 +1,6 @@
 /* @refresh reload */
 
-import { axisBottom, axisLeft, axisRight, extent, line, max, min, scaleLinear, scaleTime, select } from 'd3'
+import { Selection, axisBottom, axisLeft, axisRight, extent, line, max, min, scaleLinear, scaleTime, select } from 'd3'
 import { compareAsc, compareDesc, differenceInSeconds, format } from 'date-fns'
 import { Position } from 'geojson'
 import { Map } from 'maplibre-gl'
@@ -60,7 +60,9 @@ let map!: Map
 const [$windowSize, setWindowSize] = createSignal<{ width: number; height: number }>()
 const [$tracks, setTracks] = createSignal<Track[]>([])
 const [$trackActive, setTrackActive] = createSignal<Track | undefined>()
-let elevationChartSvg!: SVGSVGElement
+let chartSvg!: SVGSVGElement
+const chartMargin = { top: 0, right: 30, bottom: 20, left: 30 }
+const [$trackpointActive, setTrackpointActive] = createSignal<Trackpoint | undefined>()
 
 const Main: Component = () => {
     onMount(async () => {
@@ -246,19 +248,30 @@ const Main: Component = () => {
 
         if (!trackActive) return
 
-        const width = elevationChartSvg.clientWidth
-        const height = elevationChartSvg.clientHeight
-        const margin = { top: 0, right: 30, bottom: 20, left: 30 }
+        const width = chartSvg.clientWidth
+        const height = chartSvg.clientHeight
 
-        const chart = select(elevationChartSvg)
+        chartSvg.addEventListener('mousemove', e =>
+            setTrackpointActive(
+                trackActive.filtered.at(
+                    Math.floor(
+                        ((e.offsetX - chartMargin.left) / (width - chartMargin.left - chartMargin.right)) *
+                            trackActive.filtered.length
+                    )
+                )
+            )
+        )
+        chartSvg.addEventListener('mouseleave', () => setTrackpointActive(undefined))
+
+        const chart = select(chartSvg)
         const elevationData = trackActive.filtered.map(p => ({ date: new Date(p.timestamp!), value: p.position[2] }))
         const xScale = scaleTime()
             .domain(extent(elevationData, d => d.date) as [Date, Date])
-            .range([0, width - margin.left - margin.right])
+            .range([0, width - chartMargin.left - chartMargin.right])
 
         const elevationScale = scaleLinear()
             .domain([min(elevationData, d => d.value)!, max(elevationData, d => d.value)!])
-            .range([height - margin.top - margin.bottom, 0])
+            .range([height - chartMargin.top - chartMargin.bottom, 0])
         const elevationLine = line<{ date: Date; value: number }>()
             .x(d => xScale(d.date))
             .y(d => elevationScale(d.value))
@@ -266,7 +279,7 @@ const Main: Component = () => {
         chart.selectChildren().remove()
         chart
             .append('g')
-            .attr('transform', `translate(${margin.left},${height - margin.bottom})`)
+            .attr('transform', `translate(${chartMargin.left},${height - chartMargin.bottom})`)
             .call(
                 axisBottom(xScale)
                     .tickFormat(d => format(d as Date, 'HH:mm'))
@@ -279,11 +292,11 @@ const Main: Component = () => {
             .attr('fill', 'none')
             .attr('stroke', pathColors[0])
             .attr('stroke-width', 2)
-            .attr('transform', `translate(${margin.left},${margin.top})`)
+            .attr('transform', `translate(${chartMargin.left},${chartMargin.top})`)
             .attr('d', elevationLine)
         chart
             .append('g')
-            .attr('transform', `translate(${margin.left}, ${margin.top})`)
+            .attr('transform', `translate(${chartMargin.left}, ${chartMargin.top})`)
             .call(axisLeft(elevationScale).ticks(height / 20))
 
         if (trackActive.filtered[0].speed !== undefined) {
@@ -293,7 +306,7 @@ const Main: Component = () => {
             }))
             const speedScale = scaleLinear()
                 .domain([0, Math.min(50, max(speedData, d => d.value)!)])
-                .range([height - margin.top - margin.bottom, 0])
+                .range([height - chartMargin.top - chartMargin.bottom, 0])
             const speedLine = line<{ date: Date; value: number }>()
                 .x(d => xScale(d.date))
                 .y(d => speedScale(d.value))
@@ -303,14 +316,53 @@ const Main: Component = () => {
                 .attr('fill', 'none')
                 .attr('stroke', pathColors[1])
                 .attr('stroke-width', 2)
-                .attr('transform', `translate(${margin.left},${margin.top})`)
+                .attr('transform', `translate(${chartMargin.left},${chartMargin.top})`)
                 .attr('d', speedLine)
             chart
                 .append('g')
-                .attr('transform', `translate(${width - margin.left}, ${margin.top})`)
+                .attr('transform', `translate(${width - chartMargin.left}, ${chartMargin.top})`)
                 .call(axisRight(speedScale).ticks(height / 20))
         }
     })
+
+    createEffect(() => {
+        const trackActive = $trackActive()
+        if (!trackActive) return
+        const positionActive = $trackpointActive()
+        const chart = select(chartSvg)
+        const width = chartSvg.clientWidth
+        const height = chartSvg.clientHeight
+        let gActive: Selection<any, any, any, any> = chart.selectChild('.active')
+        gActive.remove()
+        if (positionActive === undefined) {
+            return
+        }
+        gActive = chart.append('g').attr('class', 'active')
+
+        const x =
+            chartMargin.left +
+            (trackActive.filtered.indexOf(positionActive) / trackActive.filtered.length) *
+                (width - chartMargin.left - chartMargin.right)
+        gActive
+            .append('line')
+            .attr('x1', x)
+            .attr('x2', x)
+            .attr('y1', 0)
+            .attr('y2', height)
+            .attr('stroke', '#222222')
+            .attr('stroke-width', 2)
+    })
+
+    const trackpointCompactPreview = (tp: Trackpoint, track: Track) => {
+        const timestamp = tp.timestamp ? format(tp.timestamp, 'HH:mm:ss') : ''
+        // TODO: format duration
+        const duration = tp.timestamp
+            ? `${differenceInSeconds(tp.timestamp, track.filtered[0].timestamp!)}s`.padStart(5)
+            : ''
+        const elevation = tp.position.length > 2 ? `${tp.position[2].toFixed()}m`.padStart(4) : ''
+        const speed = tp.speed ? `${tp.speed.toFixed()}kph`.padStart(5) : ''
+        return [timestamp, duration, elevation, speed].filter(s => s !== '').join(' ')
+    }
 
     return (
         <>
@@ -326,6 +378,7 @@ const Main: Component = () => {
                                 >
                                     <td>{format(track.timestamp, 'yyyy-MM-dd HH:mm')}</td>
                                     <td>{track.distance.toFixed()}m</td>
+                                    {/* TODO: format duration */}
                                     <td>{track.duration ? `${track.duration.toFixed()}s` : 'N/A'}</td>
                                     <td>
                                         {track.duration
@@ -339,7 +392,12 @@ const Main: Component = () => {
                 </table>
                 <Show when={$trackActive()}>
                     <div class="active">
-                        <svg ref={elevationChartSvg} />
+                        <span>
+                            {$trackpointActive()
+                                ? trackpointCompactPreview($trackpointActive()!, $trackActive()!)
+                                : '\u00a0'}
+                        </span>
+                        <svg ref={chartSvg} />
                     </div>
                 </Show>
             </div>
