@@ -55,6 +55,8 @@ type Trackpoint = {
 // TODO: server
 const gpxs = ['20260430-181917.gpx', '20260507-185410.gpx', '20260510-160805.gpx']
 
+const movingSpeedThreshold = 4
+
 let map!: Map
 
 const [$windowSize, setWindowSize] = createSignal<{ width: number; height: number }>()
@@ -177,7 +179,7 @@ const Main: Component = () => {
                         if (i === 0) filtered[i].speed = 0
                         const delta = differenceInSeconds(filtered[i + 1].timestamp!, filtered[i].timestamp!)
                         filtered[i + 1].speed = delta === 0 ? filtered[i].speed : (d / delta) * 3.6
-                        const k = 0.1
+                        const k = 0.2
                         filtered[i + 1].speed = (1 - k) * filtered[i].speed! + k * filtered[i + 1].speed!
                     }
                 }
@@ -298,7 +300,7 @@ const Main: Component = () => {
         chart
             .append('g')
             .attr('transform', `translate(${chartMargin.left}, ${chartMargin.top})`)
-            .call(axisLeft(elevationScale).ticks(height / 20))
+            .call(axisLeft(elevationScale).ticks(height / 30))
 
         if (trackActive.filtered[0].speed !== undefined) {
             const speedData = trackActive.filtered.map(p => ({
@@ -322,7 +324,7 @@ const Main: Component = () => {
             chart
                 .append('g')
                 .attr('transform', `translate(${width - chartMargin.left}, ${chartMargin.top})`)
-                .call(axisRight(speedScale).ticks(height / 20))
+                .call(axisRight(speedScale).ticks(height / 30))
         }
     })
 
@@ -396,6 +398,13 @@ const Main: Component = () => {
         return [timestamp, duration, elevation, speed].filter(s => s !== '').join(' ')
     }
 
+    const averageSpeed = (track: Track) => {
+        const moving = track.filtered
+            .filter(tp => tp.speed !== undefined && tp.speed > movingSpeedThreshold)
+            .map(tp => tp.speed!)
+        return moving.reduce((a, b) => a + b, 0) / moving.length
+    }
+
     return (
         <>
             <div id="map" />
@@ -412,18 +421,14 @@ const Main: Component = () => {
                                     <td>{track.distance.toFixed()}m</td>
                                     {/* TODO: format duration */}
                                     <td>{track.duration ? `${track.duration.toFixed()}s` : 'N/A'}</td>
-                                    <td>
-                                        {track.duration
-                                            ? `${((track.distance / track.duration) * 3.6).toFixed(1)}kph`
-                                            : 'N/A'}
-                                    </td>
+                                    <td>{track.duration ? `${averageSpeed(track).toFixed(1)}kph` : 'N/A'}</td>
                                 </tr>
                             )}
                         </For>
                     </tbody>
                 </table>
                 <Show when={$trackActive()}>
-                    <div class="active">
+                    <div class="track-active">
                         <span>
                             {$trackpointActive()
                                 ? trackpointCompactPreview($trackpointActive()!, $trackActive()!)

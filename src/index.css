@@ -147,7 +147,7 @@ select {
         flex-direction: column;
         padding: .5rem;
 
-        .tracks, .active {
+        .tracks, .track-active {
             pointer-events: auto;
             background-color: rgba(0, 0, 0, .6);
             padding: .5rem;
@@ -163,10 +163,11 @@ select {
             }
         }
 
-        .active {
+        .track-active {
             height: min(50%, 20rem);
             display: flex;
             flex-direction: column;
+            gap: .5rem;
             margin-top: auto;
 
             svg {
