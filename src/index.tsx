@@ -71,7 +71,7 @@ const Main: Component = () => {
         window.addEventListener('resize', () => setWindowSize({ width: window.innerWidth, height: window.innerHeight }))
         map = new Map({
             container: 'map',
-            style: 'map/ofm-dark.json',
+            style: 'map/dark-matter.json',
             attributionControl: false,
             center: [21, 52.23],
             zoom: 11
@@ -109,7 +109,7 @@ const Main: Component = () => {
             },
             paint: {
                 'circle-radius': 3,
-                'circle-color': '#555555'
+                'circle-color': '#333333'
             }
         })
 
