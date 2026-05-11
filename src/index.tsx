@@ -418,10 +418,11 @@ const Main: Component = () => {
                                     classList={{ active: track.timestamp === $trackActive()?.timestamp }}
                                 >
                                     <td>{format(track.timestamp, 'yyyy-MM-dd HH:mm')}</td>
-                                    <td>{track.distance.toFixed()}m</td>
+                                    <td class="number">{track.distance.toFixed()}m</td>
                                     {/* TODO: format duration */}
-                                    <td>{track.duration ? `${track.duration.toFixed()}s` : 'N/A'}</td>
-                                    <td>{track.duration ? `${averageSpeed(track).toFixed(1)}kph` : 'N/A'}</td>
+                                    <td class="number">{track.duration ? `${track.duration.toFixed()}s` : 'N/A'}</td>
+                                    <td class="number">{track.duration ? `${averageSpeed(track).toFixed(1)}kph` : 'N/A'}</td>
+                                    <td class="number">{`${track.elevation.asc.toFixed()}up`}</td>
                                 </tr>
                             )}
                         </For>

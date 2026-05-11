@@ -157,9 +157,21 @@ select {
             width: fit-content;
             border-collapse: collapse;
 
+            td {
+                padding-right: 1ch;
+
+                &:last-child {
+                    padding-right: 0;
+                }
+            }
+
             tr:hover, tr.active {
                 background-color: rgba(255, 255, 255, .2);
                 cursor: pointer;
+            }
+
+            .number {
+                text-align: right;
             }
         }
 
