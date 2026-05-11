@@ -53,7 +53,7 @@ type Trackpoint = {
 }
 
 // TODO: server
-const gpxs = ['20260430-181917.gpx', '20260507-185410.gpx', '20260510-160805.gpx']
+const gpxs = ['20260430-181917.gpx', '20260507-185410.gpx', '20260510-160805.gpx', '20260511-184017.gpx']
 
 const movingSpeedThreshold = 4
 
@@ -108,8 +108,8 @@ const Main: Component = () => {
                 }
             },
             paint: {
-                'circle-radius': 3,
-                'circle-color': '#333333'
+                'circle-radius': 2,
+                'circle-color': '#664444'
             }
         })
 
@@ -421,7 +421,9 @@ const Main: Component = () => {
                                     <td class="number">{track.distance.toFixed()}m</td>
                                     {/* TODO: format duration */}
                                     <td class="number">{track.duration ? `${track.duration.toFixed()}s` : 'N/A'}</td>
-                                    <td class="number">{track.duration ? `${averageSpeed(track).toFixed(1)}kph` : 'N/A'}</td>
+                                    <td class="number">
+                                        {track.duration ? `${averageSpeed(track).toFixed(1)}kph` : 'N/A'}
+                                    </td>
                                     <td class="number">{`${track.elevation.asc.toFixed()}up`}</td>
                                 </tr>
                             )}
