@@ -3,7 +3,7 @@
 import { Selection, axisBottom, axisLeft, axisRight, extent, line, max, min, scaleLinear, scaleTime, select } from 'd3'
 import { compareAsc, compareDesc, differenceInSeconds, format } from 'date-fns'
 import { Position } from 'geojson'
-import { Map } from 'maplibre-gl'
+import { GeoJSONSource, Map } from 'maplibre-gl'
 import { Component, For, Show, createEffect, createSignal, onMount } from 'solid-js'
 import { render } from 'solid-js/web'
 import { distanceHaversine } from './geo'
@@ -164,6 +164,7 @@ const Main: Component = () => {
                     const d = distanceHaversine(a[1], a[0], b[1], b[0])
                     distance += d
 
+                    // TODO: read elevation from topo map
                     if (b.length > 2 !== undefined) {
                         if (a[2] < b[2]) {
                             elevation.asc += b[2] - a[2]
@@ -328,20 +329,20 @@ const Main: Component = () => {
     createEffect(() => {
         const trackActive = $trackActive()
         if (!trackActive) return
-        const positionActive = $trackpointActive()
+        const tp = $trackpointActive()
         const chart = select(chartSvg)
         const width = chartSvg.clientWidth
         const height = chartSvg.clientHeight
         let gActive: Selection<any, any, any, any> = chart.selectChild('.active')
         gActive.remove()
-        if (positionActive === undefined) {
+        if (tp === undefined) {
             return
         }
         gActive = chart.append('g').attr('class', 'active')
 
         const x =
             chartMargin.left +
-            (trackActive.filtered.indexOf(positionActive) / trackActive.filtered.length) *
+            (trackActive.filtered.indexOf(tp) / trackActive.filtered.length) *
                 (width - chartMargin.left - chartMargin.right)
         gActive
             .append('line')
@@ -351,6 +352,37 @@ const Main: Component = () => {
             .attr('y2', height)
             .attr('stroke', '#222222')
             .attr('stroke-width', 2)
+
+        if (!map.getLayer('active')) {
+            map.addLayer({
+                id: 'active',
+                type: 'circle',
+                source: {
+                    type: 'geojson',
+                    data: {
+                        type: 'FeatureCollection',
+                        features: []
+                    }
+                },
+                paint: {
+                    'circle-radius': 6,
+                    'circle-color': pathColors[Math.floor(hash(trackActive.name) % pathColors.length)]
+                }
+            })
+        }
+        ;(map.getSource(map.getLayer('active')!.source)! as GeoJSONSource).setData({
+            type: 'FeatureCollection',
+            features: [
+                {
+                    type: 'Feature',
+                    geometry: {
+                        type: 'Point',
+                        coordinates: tp.position
+                    },
+                    properties: {}
+                }
+            ]
+        })
     })
 
     const trackpointCompactPreview = (tp: Trackpoint, track: Track) => {
