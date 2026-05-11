@@ -17,8 +17,7 @@ type Context = {
 }
 
 const pipeline = async (opentag: (ctx: Context, e: sax.Tag) => void, closetag: (ctx: Context, e: string) => void) => {
-    const fileStream = createReadStream('resource/planet_20.423,51.941_21.793,52.53.osm')
-    // const fileStream = createReadStream('resource/planet_20.967,52.167_21.071,52.212.osm')
+    const fileStream = createReadStream('resource/planet_20.984_52.137_a6c00e0c.osm')
     const xmlStream = sax.createStream()
 
     const ctx: Context = { highway: false }
