@@ -86,11 +86,11 @@ const Main: Component = () => {
         await new Promise(done => map.on('load', done))
 
         // const nodes: { lon: string; lat: string }[] = await (await fetch('/nodes')).json()
-        const nodes: { lon: string; lat: string }[] = await (await fetch('/nodes.json')).json()
+        const nodes: [string, string][][] = await (await fetch('/nodes.json')).json()
         console.debug(nodes)
         map.addLayer({
             id: 'nodes',
-            type: 'circle',
+            type: 'line',
             source: {
                 type: 'geojson',
                 data: {
@@ -99,8 +99,10 @@ const Main: Component = () => {
                         {
                             type: 'Feature',
                             geometry: {
-                                type: 'MultiPoint',
-                                coordinates: nodes.map(n => [Number.parseFloat(n.lon), Number.parseFloat(n.lat)])
+                                type: 'MultiLineString',
+                                coordinates: nodes.map(g =>
+                                    g.map(n => [Number.parseFloat(n[1]), Number.parseFloat(n[0])])
+                                )
                             },
                             properties: {}
                         }
@@ -108,8 +110,8 @@ const Main: Component = () => {
                 }
             },
             paint: {
-                'circle-radius': 2,
-                'circle-color': '#664444'
+                'line-color': '#774444',
+                'line-width': 2
             }
         })
 

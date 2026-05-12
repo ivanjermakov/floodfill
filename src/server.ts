@@ -3,6 +3,7 @@ import { IncomingMessage, ServerResponse, createServer } from 'http'
 import { extname, join, normalize } from 'path'
 import { stat } from 'fs/promises'
 import { exit } from 'process'
+import { groupBy } from './array'
 import { db, initDb, sql } from './db'
 import { debug, error, info, request } from './log'
 
@@ -64,7 +65,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse): Promise
 
     if (url.pathname === '/nodes') {
         const raw = await db.all(sql`
-select n.lat, n.lon
+select w.id, n.lat, n.lon
     from NodeWay nw
     join (
         select * from Way w
@@ -95,8 +96,9 @@ select n.lat, n.lon
     ) w on w.id = nw.wayId
     join Node n on n.id = nw.nodeId
 ;`)
+        const result = Object.values(groupBy(raw, r => r.id)).map(g => g.map(r => [r.lat, r.lon]))
         res.setHeader('Content-Type', contentType['.json'])
-        res.write(JSON.stringify(raw))
+        res.write(JSON.stringify(result))
         res.statusCode = 200
         res.end()
         return
