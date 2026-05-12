@@ -331,15 +331,26 @@ const Main: Component = () => {
     })
 
     createEffect(() => {
+        const cleanup = () => {
+            if (map.getLayer('active')) {
+                map.removeLayer('active')
+                map.removeSource('active')
+            }
+        }
         const trackActive = $trackActive()
-        if (!trackActive) return
+        if (!trackActive) {
+            cleanup()
+            return
+        }
         const tp = $trackpointActive()
         const chart = select(chartSvg)
         const width = chartSvg.clientWidth
         const height = chartSvg.clientHeight
+
         let gActive: Selection<any, any, any, any> = chart.selectChild('.active')
         gActive.remove()
         if (tp === undefined) {
+            cleanup()
             return
         }
         gActive = chart.append('g').attr('class', 'active')
@@ -424,7 +435,10 @@ const Main: Component = () => {
                         <For each={$tracks()}>
                             {track => (
                                 <tr
-                                    onClick={() => setTrackActive($trackActive() === track ? undefined : track)}
+                                    onClick={() => {
+                                        setTrackActive(undefined)
+                                        setTrackActive($trackActive() === track ? undefined : track)
+                                    }}
                                     classList={{ active: track.timestamp === $trackActive()?.timestamp }}
                                 >
                                     <td>{format(track.timestamp, 'yyyy-MM-dd HH:mm')}</td>
