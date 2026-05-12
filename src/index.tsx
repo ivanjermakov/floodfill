@@ -389,11 +389,19 @@ const Main: Component = () => {
         })
     })
 
+    const formatDuration = (secondsTotal: number) => {
+        let total = secondsTotal
+        const hours = Math.floor(total / 3600)
+        total -= 3600 * hours
+        const minutes = Math.floor(total / 60)
+        total -= 60 * minutes
+        return [hours > 0 ? `${hours}h` : undefined, `${minutes}m`].filter(s => !!s).join('')
+    }
+
     const trackpointCompactPreview = (tp: Trackpoint, track: Track) => {
         const timestamp = tp.timestamp ? format(tp.timestamp, 'HH:mm:ss') : ''
-        // TODO: format duration
         const duration = tp.timestamp
-            ? `${differenceInSeconds(tp.timestamp, track.filtered[0].timestamp!)}s`.padStart(5)
+            ? formatDuration(differenceInSeconds(tp.timestamp, track.filtered[0].timestamp!)).padStart(5)
             : ''
         const elevation = tp.position.length > 2 ? `${tp.position[2].toFixed()}m`.padStart(4) : ''
         const speed = tp.speed ? `${tp.speed.toFixed()}kph`.padStart(5) : ''
@@ -421,8 +429,7 @@ const Main: Component = () => {
                                 >
                                     <td>{format(track.timestamp, 'yyyy-MM-dd HH:mm')}</td>
                                     <td class="number">{track.distance.toFixed()}m</td>
-                                    {/* TODO: format duration */}
-                                    <td class="number">{track.duration ? `${track.duration.toFixed()}s` : 'N/A'}</td>
+                                    <td class="number">{track.duration ? formatDuration(track.duration) : 'N/A'}</td>
                                     <td class="number">
                                         {track.duration ? `${averageSpeed(track).toFixed(1)}kph` : 'N/A'}
                                     </td>
