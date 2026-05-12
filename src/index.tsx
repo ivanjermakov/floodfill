@@ -50,6 +50,7 @@ type Track = {
 
 type Trackpoint = {
     position: Position
+    distance: number
     timestamp?: string
     /**
      * kph
@@ -144,6 +145,7 @@ const Main: Component = () => {
                 const trackpoints: Trackpoint[] = [...trkseg.getElementsByTagName('trkpt')].map(point => {
                     const trackpoint = {
                         position: [readNumAttr(point, 'lon'), readNumAttr(point, 'lat')],
+                        distance: 0,
                         timestamp: point.getElementsByTagName('time').item(0)?.innerHTML ?? undefined
                     }
                     const elevation = readNumChild(point, 'ele')
@@ -156,7 +158,7 @@ const Main: Component = () => {
                 const position = trackpoints[0].position
                 for (const point of trackpoints) {
                     const p = point.position
-                    const k = 0.4
+                    const k = 0.3
                     position[0] = position[0] * (1 - k) + p[0] * k
                     position[1] = position[1] * (1 - k) + p[1] * k
 
@@ -165,7 +167,11 @@ const Main: Component = () => {
                         const k = 0.05
                         position[2] = position[2] * (1 - k) + p[2] * k
                     }
-                    const f: Trackpoint = { position: [...position], timestamp: point.timestamp }
+                    const f: Trackpoint = {
+                        position: [...position],
+                        distance: point.distance,
+                        timestamp: point.timestamp
+                    }
                     filtered.push(f)
                 }
 
@@ -178,6 +184,7 @@ const Main: Component = () => {
                     const b = filtered[i + 1].position
                     const d = distanceHaversine(a[1], a[0], b[1], b[0])
                     distance += d
+                    filtered[i + 1].distance = distance
 
                     // TODO: read elevation from topo map
                     if (b.length > 2 !== undefined) {
@@ -427,7 +434,9 @@ const Main: Component = () => {
             : ''
         const elevation = tp.position.length > 2 ? `${tp.position[2].toFixed()}m`.padStart(4) : ''
         const speed = tp.speed ? `${tp.speed.toFixed()}kph`.padStart(5) : ''
-        return [timestamp, duration, elevation, speed].filter(s => s !== '').join(' ')
+        return [timestamp, `${(tp.distance / 1000).toFixed(1)}km`, duration, elevation, speed]
+            .filter(s => s !== '')
+            .join(' ')
     }
 
     const averageSpeed = (track: Track) => {
@@ -453,7 +462,7 @@ const Main: Component = () => {
                                     classList={{ active: track.timestamp === $trackActive()?.timestamp }}
                                 >
                                     <td>{format(track.timestamp, 'yyyy-MM-dd HH:mm')}</td>
-                                    <td class="number">{track.distance.toFixed()}m</td>
+                                    <td class="number">{(track.distance / 1000).toFixed(1)}km</td>
                                     <td class="number">{track.duration ? formatDuration(track.duration) : 'N/A'}</td>
                                     <td class="number">
                                         {track.duration ? `${averageSpeed(track).toFixed(1)}kph` : 'N/A'}
