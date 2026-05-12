@@ -10,16 +10,21 @@ import { distanceHaversine } from './geo'
 import './index.css'
 
 const pathColors = [
-    '#7fb069',
-    '#f5b700',
-    '#00a1e4',
-    '#dab6fc',
-    '#fd3e81',
-    '#7cfef0',
-    '#5aa9e6',
-    '#cb48b7',
+    '#f0c808',
     '#e3170a',
-    '#fabc2a'
+    '#fd3e81',
+    '#ffa3af',
+    '#cb48b7',
+    '#b071c1',
+    '#dab6fc',
+    '#7d83ff',
+    '#5aa9e6',
+    '#00a1e4',
+    '#007cbe',
+    '#7fb069',
+    '#00af54',
+    '#7cfef0',
+    '#5dfdcb'
 ]
 
 const hash = (str: string) => {
@@ -53,7 +58,13 @@ type Trackpoint = {
 }
 
 // TODO: server
-const gpxs = ['20260430-181917.gpx', '20260507-185410.gpx', '20260510-160805.gpx', '20260511-184017.gpx']
+const gpxs = [
+    '20260430-181917.gpx',
+    '20260507-185410.gpx',
+    '20260510-160805.gpx',
+    '20260511-184017.gpx',
+    '20260512-181352.gpx'
+]
 
 const movingSpeedThreshold = 4
 
@@ -110,8 +121,8 @@ const Main: Component = () => {
                 }
             },
             paint: {
-                'line-color': '#774444',
-                'line-width': 2
+                'line-color': '#aa5555',
+                'line-width': 1
             }
         })
 
@@ -145,7 +156,7 @@ const Main: Component = () => {
                 const position = trackpoints[0].position
                 for (const point of trackpoints) {
                     const p = point.position
-                    const k = 0.2
+                    const k = 0.4
                     position[0] = position[0] * (1 - k) + p[0] * k
                     position[1] = position[1] * (1 - k) + p[1] * k
 
