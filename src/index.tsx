@@ -477,8 +477,9 @@ const Main: Component = () => {
                             {track => (
                                 <tr
                                     onClick={() => {
+                                        const active = $trackActive() === track
                                         setTrackActive(undefined)
-                                        setTrackActive($trackActive() === track ? undefined : track)
+                                        setTrackActive(active ? undefined : track)
                                     }}
                                     classList={{ active: track.timestamp === $trackActive()?.timestamp }}
                                 >
