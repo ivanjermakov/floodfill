@@ -10,10 +10,13 @@ import { distanceHaversine } from './geo'
 import './index.css'
 
 const pathColors = [
+    '#eff1f3',
     '#f0c808',
+    '#fed766',
     '#e3170a',
     '#fd3e81',
     '#ffa3af',
+    '#ff66d8',
     '#cb48b7',
     '#b071c1',
     '#dab6fc',
@@ -24,7 +27,9 @@ const pathColors = [
     '#7fb069',
     '#00af54',
     '#7cfef0',
-    '#5dfdcb'
+    '#85ff9e',
+    '#5dfdcb',
+    '#009fb7'
 ]
 
 const hash = (str: string) => {
@@ -64,7 +69,8 @@ const gpxs = [
     '20260507-185410.gpx',
     '20260510-160805.gpx',
     '20260511-184017.gpx',
-    '20260512-181352.gpx'
+    '20260512-181352.gpx',
+    '20260513-170937.gpx'
 ]
 
 const movingSpeedThreshold = 4
