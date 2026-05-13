@@ -105,6 +105,16 @@ select w.id, n.lat, n.lon
         return
     }
 
+    if (url.pathname === '/elevation') {
+        const ps: number[][] = JSON.parse(new TextDecoder().decode(await body(req)))
+        const result = await Promise.all(ps.map(p => elevationAt(p[0], p[1])))
+        res.setHeader('Content-Type', contentType['.json'])
+        res.write(JSON.stringify(result))
+        res.statusCode = 200
+        res.end()
+        return
+    }
+
     if (await tryServeFile(url.pathname, res)) {
         return
     }
@@ -157,7 +167,6 @@ process.on('SIGTERM', deinit)
 
 await initDb()
 await initGeo('resource/srtm/output_hh.tif')
-console.log(await elevationAt(21.022630589071927, 52.181332992067155))
 
 const server = createServer((req, res) => {
     handleRequest(req, res).catch(e => {

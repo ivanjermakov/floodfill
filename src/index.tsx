@@ -68,6 +68,10 @@ const gpxs = [
 ]
 
 const movingSpeedThreshold = 4
+/**
+ * Elevation discrepancy after which rely on GPS data only (bridges/tunnels)
+ */
+const elevationThreshold = 5
 
 let map!: Map
 
@@ -154,6 +158,21 @@ const Main: Component = () => {
                 })
                 trackpoints.sort((a, b) => compareAsc(a.timestamp ?? '', b.timestamp ?? ''))
 
+                const elevations: (number | null)[] = await (
+                    await fetch('/elevation', {
+                        method: 'POST',
+                        body: JSON.stringify(trackpoints.map(tp => tp.position.slice(0, 2)))
+                    })
+                ).json()
+                trackpoints.forEach((tp, i) => {
+                    const e = elevations[i]
+                    if (e !== null) {
+                        if (tp.position.length === 2 || Math.abs(tp.position[2] - e) < elevationThreshold) {
+                            tp.position[2] = e
+                        }
+                    }
+                })
+
                 const filtered: Trackpoint[] = []
                 const position = trackpoints[0].position
                 for (const point of trackpoints) {
@@ -161,12 +180,9 @@ const Main: Component = () => {
                     const k = 0.3
                     position[0] = position[0] * (1 - k) + p[0] * k
                     position[1] = position[1] * (1 - k) + p[1] * k
+                    const kEle = 0.05
+                    if (p.length > 2) position[2] = position[2] * (1 - kEle) + p[2] * kEle
 
-                    if (position.length > 2 !== undefined) {
-                        // since altitude changes are less volatile, apply heavier filtering
-                        const k = 0.05
-                        position[2] = position[2] * (1 - k) + p[2] * k
-                    }
                     const f: Trackpoint = {
                         position: [...position],
                         distance: point.distance,
@@ -186,7 +202,6 @@ const Main: Component = () => {
                     distance += d
                     filtered[i + 1].distance = distance
 
-                    // TODO: read elevation from topo map
                     if (b.length > 2 !== undefined) {
                         if (a[2] < b[2]) {
                             elevation.asc += b[2] - a[2]
@@ -314,7 +329,7 @@ const Main: Component = () => {
             .datum(elevationData)
             .attr('fill', 'none')
             .attr('stroke', pathColors[0])
-            .attr('stroke-width', 2)
+            .attr('stroke-width', 1)
             .attr('transform', `translate(${chartMargin.left},${chartMargin.top})`)
             .attr('d', elevationLine)
         chart
@@ -338,7 +353,7 @@ const Main: Component = () => {
                 .datum(speedData)
                 .attr('fill', 'none')
                 .attr('stroke', pathColors[1])
-                .attr('stroke-width', 2)
+                .attr('stroke-width', 1)
                 .attr('transform', `translate(${chartMargin.left},${chartMargin.top})`)
                 .attr('d', speedLine)
             chart
