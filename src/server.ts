@@ -5,6 +5,7 @@ import { stat } from 'fs/promises'
 import { exit } from 'process'
 import { groupBy } from './array'
 import { db, initDb, sql } from './db'
+import { elevationAt, initGeo } from './geotiff'
 import { debug, error, info, request } from './log'
 
 const streamFile = (filePath: string, res: ServerResponse): void => {
@@ -155,6 +156,8 @@ process.on('SIGINT', deinit)
 process.on('SIGTERM', deinit)
 
 await initDb()
+await initGeo('resource/srtm/output_hh.tif')
+console.log(await elevationAt(21.022630589071927, 52.181332992067155))
 
 const server = createServer((req, res) => {
     handleRequest(req, res).catch(e => {
