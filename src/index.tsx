@@ -6,13 +6,14 @@ import { Position } from 'geojson'
 import { GeoJSONSource, Map } from 'maplibre-gl'
 import { Component, For, Show, createEffect, createSignal, onMount } from 'solid-js'
 import { render } from 'solid-js/web'
+import { Grid } from './Grid'
 import { distanceHaversine } from './geo'
 import './index.css'
 
 const pathColors = [
     '#eff1f3',
-    '#f0c808',
-    '#fed766',
+    '#fef766',
+    '#f0b808',
     '#e3170a',
     '#fd3e81',
     '#ffa3af',
@@ -70,7 +71,8 @@ const gpxs = [
     '20260510-160805.gpx',
     '20260511-184017.gpx',
     '20260512-181352.gpx',
-    '20260513-170937.gpx'
+    '20260513-170937.gpx',
+    '20260514-115529.gpx'
 ]
 
 const movingSpeedThreshold = 4
@@ -105,6 +107,18 @@ const Main: Component = () => {
         // map.touchZoomRotate.disableRotation()
         // map.on('move', () => console.debug(map.getCenter(), map.getZoom()))
         map.scrollZoom.enable()
+        map.addControl(
+            new Grid({
+                width: 5e3,
+                height: 5e3,
+                minZoom: 9,
+                origin: map.getCenter().toArray(),
+                paint: {
+                    'line-color': '#555555',
+                    'line-width': 1
+                }
+            })
+        )
         await new Promise(done => map.on('load', done))
 
         // const nodes: { lon: string; lat: string }[] = await (await fetch('/nodes')).json()
@@ -220,7 +234,7 @@ const Main: Component = () => {
                         if (i === 0) filtered[i].speed = 0
                         const delta = differenceInSeconds(filtered[i + 1].timestamp!, filtered[i].timestamp!)
                         filtered[i + 1].speed = delta === 0 ? filtered[i].speed : (d / delta) * 3.6
-                        const k = 0.2
+                        const k = 0.5
                         filtered[i + 1].speed = (1 - k) * filtered[i].speed! + k * filtered[i + 1].speed!
                     }
                 }
