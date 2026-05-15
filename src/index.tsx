@@ -72,7 +72,8 @@ const gpxs = [
     '20260511-184017.gpx',
     '20260512-181352.gpx',
     '20260513-170937.gpx',
-    '20260514-115529.gpx'
+    '20260514-115529.gpx',
+    '20260515-192042.gpx'
 ]
 
 const movingSpeedThreshold = 4
@@ -507,6 +508,25 @@ const Main: Component = () => {
                                 </tr>
                             )}
                         </For>
+                        <tr>
+                            <td>Total</td>
+                            <td class="number">
+                                {(
+                                    $tracks()
+                                        .map(t => t.distance)
+                                        .reduce((a, b) => a + b, 0) / 1000
+                                ).toFixed()}
+                                km
+                            </td>
+                            <td class="number">
+                                {`${(
+                                    $tracks()
+                                        .map(t => t.duration ?? 0)
+                                        .reduce((a, b) => a + b, 0) / 3600
+                                ).toFixed()}h`}
+                            </td>
+                            <td />
+                        </tr>
                     </tbody>
                 </table>
                 <Show when={$trackActive()}>

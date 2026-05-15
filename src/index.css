@@ -170,6 +170,11 @@ select {
                 cursor: pointer;
             }
 
+            tr:last-child {
+                background-color: unset;
+                cursor: auto;
+            }
+
             .number {
                 text-align: right;
             }
