@@ -73,7 +73,8 @@ const gpxs = [
     '20260512-181352.gpx',
     '20260513-170937.gpx',
     '20260514-115529.gpx',
-    '20260515-192042.gpx'
+    '20260515-192042.gpx',
+    '20260517-110028.gpx'
 ]
 
 const movingSpeedThreshold = 4
@@ -99,9 +100,8 @@ const Main: Component = () => {
             style: 'map/dark-matter.json',
             attributionControl: false,
             center: [21, 52.23],
-            zoom: 11
-            // center: [21.02, 52.19],
-            // zoom: 13
+            zoom: 11,
+            canvasContextAttributes: { preserveDrawingBuffer: true }
         })
         // map.dragRotate.disable()
         // map.keyboard.disable()
@@ -198,7 +198,7 @@ const Main: Component = () => {
                 const position = trackpoints[0].position
                 for (const point of trackpoints) {
                     const p = point.position
-                    const k = 0.3
+                    const k = 0.5
                     position[0] = position[0] * (1 - k) + p[0] * k
                     position[1] = position[1] * (1 - k) + p[1] * k
                     const kEle = 0.05
@@ -482,6 +482,56 @@ const Main: Component = () => {
         return moving.reduce((a, b) => a + b, 0) / moving.length
     }
 
+    const shareTrack = async (track: Track) => {
+        const mapCanvas = document.getElementsByClassName('maplibregl-canvas')[0] as HTMLCanvasElement
+
+        const canvas = new OffscreenCanvas(mapCanvas.height, mapCanvas.height)
+        const ctx = canvas.getContext('2d')!
+        ctx.drawImage(
+            mapCanvas,
+            (mapCanvas.width - mapCanvas.height) / 2,
+            0,
+            mapCanvas.height,
+            mapCanvas.height,
+            0,
+            0,
+            canvas.width,
+            canvas.height
+        )
+
+        ctx.textAlign = 'center'
+        ctx.fillStyle = 'white'
+
+        let fontSize = 86
+        const lineHeight = 1.5
+        ctx.font = `${fontSize}px Space Mono`
+        let height = canvas.height / 2 - fontSize
+        ctx.fillText(`${(track.distance / 1000).toFixed(1)} km`, canvas.width / 2, height)
+        height += lineHeight * fontSize
+
+        fontSize = 48
+        ctx.font = `${fontSize}px Space Mono`
+        ctx.fillText(format(track.timestamp, 'MMMM do yyyy, HH:mm'), canvas.width / 2, height)
+        height += lineHeight * fontSize
+
+        if (track.duration) {
+            ctx.font = `${fontSize}px Space Mono`
+            ctx.fillText(
+                `${formatDuration(track.duration)} at avg ${averageSpeed(track).toFixed(1)}kph`,
+                canvas.width / 2,
+                height
+            )
+            height += lineHeight * fontSize
+        }
+
+        const blob = await canvas.convertToBlob({ type: 'image/png' })
+        const a = document.createElement('a')
+        a.href = URL.createObjectURL(blob)
+        a.download = `track_result_${track.timestamp}.png`
+        a.click()
+        URL.revokeObjectURL(a.href)
+    }
+
     return (
         <>
             <div id="map" />
@@ -531,11 +581,16 @@ const Main: Component = () => {
                 </table>
                 <Show when={$trackActive()}>
                     <div class="track-active">
-                        <span>
-                            {$trackpointActive()
-                                ? trackpointCompactPreview($trackpointActive()!, $trackActive()!)
-                                : '\u00a0'}
-                        </span>
+                        <header>
+                            <button type="button" onClick={() => shareTrack($trackActive()!)}>
+                                Share
+                            </button>
+                            <span>
+                                {$trackpointActive()
+                                    ? trackpointCompactPreview($trackpointActive()!, $trackActive()!)
+                                    : '\u00a0'}
+                            </span>
+                        </header>
                         <svg ref={chartSvg} />
                     </div>
                 </Show>

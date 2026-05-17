@@ -5,4 +5,4 @@ pnpm-lock.yaml
 .netlify
 *.db*
 resource/
-public/gpx/
+public/gpx
