@@ -193,7 +193,7 @@ const Main: Component = () => {
         chartSvg.addEventListener('mouseleave', () => setTrackpointActive(undefined))
 
         const chart = select(chartSvg)
-        const elevationData = trackActive.filtered.map(p => ({ date: new Date(p.timestamp!), value: p.position[2] }))
+        const elevationData = trackActive.filtered.map(p => ({ date: new Date(p.timestamp), value: p.position[2] }))
         const xScale = scaleTime()
             .domain(extent(elevationData, d => d.date) as [Date, Date])
             .range([chartMargin.left, width - chartMargin.right])
@@ -230,7 +230,7 @@ const Main: Component = () => {
 
         if (trackActive.filtered[0].speed !== undefined) {
             const speedData = trackActive.filtered.map(p => ({
-                date: new Date(p.timestamp!),
+                date: new Date(p.timestamp),
                 value: p.speed!
             }))
             const speedScale = scaleLinear()
@@ -375,9 +375,9 @@ const Main: Component = () => {
 
     const trackpointCompactPreview = (tp: Trackpoint, track: Track) => {
         const index = track.filtered.indexOf(tp)
-        const timestamp = tp.timestamp ? format(tp.timestamp, 'HH:mm:ss') : ''
+        const timestamp = format(tp.timestamp, 'HH:mm:ss')
         const duration = tp.timestamp
-            ? formatDuration(differenceInSeconds(tp.timestamp, track.filtered[0].timestamp!)).padStart(5)
+            ? formatDuration(differenceInSeconds(tp.timestamp, track.filtered[0].timestamp)).padStart(5)
             : ''
         const elevation = tp.position.length > 2 ? `${tp.position[2].toFixed()}m`.padStart(4) : ''
 

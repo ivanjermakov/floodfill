@@ -16,7 +16,7 @@ export type Track = {
 export type Trackpoint = {
     position: Position
     distance: number
-    timestamp?: string
+    timestamp: string
     /**
      * kph
      */

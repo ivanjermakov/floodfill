@@ -24,7 +24,8 @@ export const parseGpx = async (name: string, data: string): Promise<Track> => {
                     Number.parseFloat(node.attributes.LON as string),
                     Number.parseFloat(node.attributes.LAT as string)
                 ],
-                distance: 0
+                distance: 0,
+                timestamp: undefined!
             }
         } else if (currentPoint) {
             if (node.name === 'ELE') ele = true
@@ -51,7 +52,7 @@ export const parseGpx = async (name: string, data: string): Promise<Track> => {
     stream.write(data)
     stream.end()
 
-    trackpoints.sort((a, b) => compareAsc(a.timestamp ?? '', b.timestamp ?? ''))
+    trackpoints.sort((a, b) => compareAsc(a.timestamp, b.timestamp))
 
     for (const tp of trackpoints) {
         const e = await elevationAt(tp.position[0], tp.position[1])
@@ -80,8 +81,8 @@ export const parseGpx = async (name: string, data: string): Promise<Track> => {
         filtered.push(f)
     }
 
-    const timeStart = trackpoints.at(0)?.timestamp
-    const timeEnd = trackpoints.at(-1)?.timestamp
+    const timeStart = trackpoints.at(0)!.timestamp
+    const timeEnd = trackpoints.at(-1)!.timestamp
     let distance = 0
     const elevation = { asc: 0, desc: 0 }
     for (let i = 0; i < filtered.length - 1; i++) {
@@ -99,20 +100,18 @@ export const parseGpx = async (name: string, data: string): Promise<Track> => {
             }
         }
 
-        if (filtered[i].timestamp && filtered[i + 1].timestamp) {
-            if (i === 0) filtered[i].speed = 0
-            const delta = differenceInSeconds(filtered[i + 1].timestamp!, filtered[i].timestamp!)
-            filtered[i + 1].speed = delta === 0 ? filtered[i].speed : (d / delta) * 3.6
-            const k = 0.5
-            filtered[i + 1].speed = (1 - k) * filtered[i].speed! + k * filtered[i + 1].speed!
-        }
+        if (i === 0) filtered[i].speed = 0
+        const delta = differenceInSeconds(filtered[i + 1].timestamp, filtered[i].timestamp)
+        filtered[i + 1].speed = delta === 0 ? filtered[i].speed : (d / delta) * 3.6
+        const k = 0.5
+        filtered[i + 1].speed = (1 - k) * filtered[i].speed! + k * filtered[i + 1].speed!
     }
     const track: Track = {
         name: name.replace(/\.gpx$/, ''),
-        timestamp: trackpoints[0].timestamp ?? new Date().toISOString(),
+        timestamp: trackpoints[0].timestamp,
         points: trackpoints,
         filtered,
-        duration: timeStart && timeEnd ? differenceInSeconds(timeEnd, timeStart) : undefined,
+        duration: differenceInSeconds(timeEnd, timeStart),
         distance,
         elevation
     }
