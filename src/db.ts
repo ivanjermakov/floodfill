@@ -30,6 +30,13 @@ export const initDb = async (): Promise<Database> => {
     })
     db.on('close', () => debug('db close'))
 
+    db.exec(sql`
+create table if not exists Track (
+    timestamp text not null,
+    data text not null
+)
+    `)
+
     debug('initialized')
     return db
 }

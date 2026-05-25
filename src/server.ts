@@ -5,7 +5,8 @@ import { stat } from 'fs/promises'
 import { exit } from 'process'
 import { groupBy } from './array'
 import { db, initDb, sql } from './db'
-import { elevationAt, initGeo } from './geotiff'
+import { initGeo } from './geotiff'
+import { parseGpx } from './gpx'
 import { debug, error, info, request } from './log'
 
 const streamFile = (filePath: string, res: ServerResponse): void => {
@@ -38,7 +39,7 @@ const contentType: Record<string, string> = {
     '.woff2': 'font/woff2'
 }
 
-const body = (req: IncomingMessage): Promise<ArrayBuffer> => {
+const readBody = (req: IncomingMessage): Promise<ArrayBuffer> => {
     return new Promise<ArrayBuffer>((resolve, reject) => {
         const chunks: Buffer[] = []
         req.on('data', chunk => chunks.push(chunk))
@@ -105,11 +106,21 @@ select w.id, n.lat, n.lon
         return
     }
 
-    if (url.pathname === '/elevation') {
-        const ps: number[][] = JSON.parse(new TextDecoder().decode(await body(req)))
-        const result = await Promise.all(ps.map(p => elevationAt(p[0], p[1])))
+    if (url.pathname === '/track' && req.method === 'POST') {
+        const body: { name: string; data: string } = JSON.parse(new TextDecoder().decode(await readBody(req)))
+        const track = await parseGpx(body.name, body.data)
+        await db.run(sql`insert into Track (timestamp, data) values (?, ?)`, track.timestamp, JSON.stringify(track))
         res.setHeader('Content-Type', contentType['.json'])
-        res.write(JSON.stringify(result))
+        res.write(JSON.stringify(track))
+        res.statusCode = 201
+        res.end()
+        return
+    }
+
+    if (url.pathname === '/tracks') {
+        const raw = await db.all(sql`select data from Track order by timestamp desc`)
+        res.setHeader('Content-Type', contentType['.json'])
+        res.write(JSON.stringify(raw.map(r => JSON.parse(r.data))))
         res.statusCode = 200
         res.end()
         return

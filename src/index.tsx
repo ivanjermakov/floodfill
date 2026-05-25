@@ -1,13 +1,12 @@
 /* @refresh reload */
 
 import { Selection, axisBottom, axisLeft, axisRight, extent, line, max, min, scaleLinear, scaleTime, select } from 'd3'
-import { compareAsc, compareDesc, differenceInSeconds, format } from 'date-fns'
-import { Position } from 'geojson'
+import { compareDesc, differenceInSeconds, format } from 'date-fns'
 import { GeoJSONSource, Map } from 'maplibre-gl'
 import { Component, For, Show, createEffect, createSignal, onMount } from 'solid-js'
 import { render } from 'solid-js/web'
 import { Grid } from './Grid'
-import { distanceHaversine } from './geo'
+import { Track, Trackpoint } from './api'
 import './index.css'
 
 const pathColors = [
@@ -41,29 +40,6 @@ const hash = (str: string) => {
     return hash >>> 0
 }
 
-type Track = {
-    name: string
-    timestamp: string
-    points: Trackpoint[]
-    filtered: Trackpoint[]
-    /**
-     * Seconds
-     */
-    duration?: number
-    distance: number
-    elevation: { asc: number; desc: number }
-}
-
-type Trackpoint = {
-    position: Position
-    distance: number
-    timestamp?: string
-    /**
-     * kph
-     */
-    speed?: number
-}
-
 // TODO: server
 const gpxs = [
     '20260430-181917.gpx',
@@ -74,14 +50,15 @@ const gpxs = [
     '20260513-170937.gpx',
     '20260514-115529.gpx',
     '20260515-192042.gpx',
-    '20260517-110028.gpx'
+    '20260517-110028.gpx',
+    '20260518-150758.gpx',
+    '20260519-180403.gpx',
+    '20260520-174005.gpx',
+    '20260521-182806.gpx',
+    '20260524-192645.gpx'
 ]
 
 const movingSpeedThreshold = 4
-/**
- * Elevation discrepancy after which rely on GPS data only (bridges/tunnels)
- */
-const elevationThreshold = 5
 
 let map!: Map
 
@@ -152,109 +129,7 @@ const Main: Component = () => {
             }
         })
 
-        const tracks: Track[] = await Promise.all(
-            gpxs.map(async trackFile => {
-                const gpxRaw = await (await fetch(`gpx/${trackFile}`)).text()
-                const parser = new DOMParser()
-                const gpx = parser.parseFromString(gpxRaw, 'text/xml')
-                const readNumAttr = (e: Element, name: string) =>
-                    Number.parseFloat(e.attributes.getNamedItem(name)!.value)
-                const readNumChild = (e: Element, name: string) => {
-                    const raw = e.getElementsByTagName(name).item(0)?.innerHTML
-                    if (raw) return Number.parseFloat(raw)
-                    return undefined
-                }
-                // https://github.com/timfraedrich/OutRun/issues/96
-                const trksegs = gpx.getElementsByTagName('trkseg')
-                const trkseg = trksegs.item(trksegs.length - 1)!
-                const trackpoints: Trackpoint[] = [...trkseg.getElementsByTagName('trkpt')].map(point => {
-                    const trackpoint = {
-                        position: [readNumAttr(point, 'lon'), readNumAttr(point, 'lat')],
-                        distance: 0,
-                        timestamp: point.getElementsByTagName('time').item(0)?.innerHTML ?? undefined
-                    }
-                    const elevation = readNumChild(point, 'ele')
-                    if (elevation !== undefined) trackpoint.position.push(elevation)
-                    return trackpoint
-                })
-                trackpoints.sort((a, b) => compareAsc(a.timestamp ?? '', b.timestamp ?? ''))
-
-                const elevations: (number | null)[] = await (
-                    await fetch('/elevation', {
-                        method: 'POST',
-                        body: JSON.stringify(trackpoints.map(tp => tp.position.slice(0, 2)))
-                    })
-                ).json()
-                trackpoints.forEach((tp, i) => {
-                    const e = elevations[i]
-                    if (e !== null) {
-                        if (tp.position.length === 2 || Math.abs(tp.position[2] - e) < elevationThreshold) {
-                            tp.position[2] = e
-                        }
-                    }
-                })
-
-                const filtered: Trackpoint[] = []
-                const position = trackpoints[0].position
-                for (const point of trackpoints) {
-                    const p = point.position
-                    const k = 0.5
-                    position[0] = position[0] * (1 - k) + p[0] * k
-                    position[1] = position[1] * (1 - k) + p[1] * k
-                    const kEle = 0.05
-                    if (p.length > 2) position[2] = position[2] * (1 - kEle) + p[2] * kEle
-
-                    const f: Trackpoint = {
-                        position: [...position],
-                        distance: point.distance,
-                        timestamp: point.timestamp
-                    }
-                    filtered.push(f)
-                }
-
-                const timeStart = trackpoints.at(0)?.timestamp
-                const timeEnd = trackpoints.at(-1)?.timestamp
-                let distance = 0
-                const elevation = { asc: 0, desc: 0 }
-                for (let i = 0; i < filtered.length - 1; i++) {
-                    const a = filtered[i].position
-                    const b = filtered[i + 1].position
-                    const d = distanceHaversine(a[1], a[0], b[1], b[0])
-                    distance += d
-                    filtered[i + 1].distance = distance
-
-                    if (b.length > 2 !== undefined) {
-                        if (a[2] < b[2]) {
-                            elevation.asc += b[2] - a[2]
-                        } else {
-                            elevation.desc += a[2] - b[2]
-                        }
-                    }
-
-                    if (filtered[i].timestamp && filtered[i + 1].timestamp) {
-                        if (i === 0) filtered[i].speed = 0
-                        const delta = differenceInSeconds(filtered[i + 1].timestamp!, filtered[i].timestamp!)
-                        filtered[i + 1].speed = delta === 0 ? filtered[i].speed : (d / delta) * 3.6
-                        const k = 0.5
-                        filtered[i + 1].speed = (1 - k) * filtered[i].speed! + k * filtered[i + 1].speed!
-                    }
-                }
-                const track: Track = {
-                    name: trackFile,
-                    timestamp:
-                        trackpoints[0].timestamp ??
-                        gpx.getElementsByTagName('time').item(0)?.innerHTML ??
-                        new Date().toISOString(),
-                    points: trackpoints,
-                    filtered,
-                    duration: timeStart && timeEnd ? differenceInSeconds(timeEnd, timeStart) : undefined,
-                    distance,
-                    elevation
-                }
-                return track
-            })
-        )
-
+        const tracks: Track[] = await (await fetch('/tracks')).json()
         await Promise.all(
             tracks.map(async track => {
                 map.addLayer({
