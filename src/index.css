@@ -145,9 +145,10 @@ select {
         pointer-events: none;
         display: flex;
         flex-direction: column;
+        align-items: start;
         padding: .5rem;
 
-        .tracks, .track-active {
+        .tracks, .track-active, .import {
             pointer-events: auto;
             background-color: rgba(0, 0, 0, .6);
             padding: .5rem;

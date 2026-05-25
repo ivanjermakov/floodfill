@@ -20,8 +20,8 @@ export const parseGpx = async (name: string, data: string): Promise<Track> => {
         if (node.name === 'TRKPT') {
             currentPoint = {
                 position: [
-                    Number.parseFloat(node.attributes.LAT as string),
-                    Number.parseFloat(node.attributes.LON as string)
+                    Number.parseFloat(node.attributes.LON as string),
+                    Number.parseFloat(node.attributes.LAT as string)
                 ],
                 distance: 0
             }

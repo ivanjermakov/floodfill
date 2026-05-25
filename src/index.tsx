@@ -69,6 +69,8 @@ let chartSvg!: SVGSVGElement
 const chartMargin = { top: 0, right: 30, bottom: 20, left: 30 }
 const [$trackpointActive, setTrackpointActive] = createSignal<Trackpoint | undefined>()
 
+let importInput!: HTMLInputElement
+
 const Main: Component = () => {
     onMount(async () => {
         window.addEventListener('resize', () => setWindowSize({ width: window.innerWidth, height: window.innerHeight }))
@@ -129,9 +131,14 @@ const Main: Component = () => {
             }
         })
 
-        const tracks: Track[] = await (await fetch('/tracks')).json()
+        setTracks(await (await fetch('/tracks')).json())
+    })
+
+    createEffect(async () => {
+        const tracks = $tracks()
         await Promise.all(
             tracks.map(async track => {
+                if (map.getLayer(track.name)) return
                 map.addLayer({
                     id: track.name,
                     type: 'line',
@@ -329,6 +336,28 @@ const Main: Component = () => {
         })
     })
 
+    const readFile = async (file: File, encoding: string = 'utf-8'): Promise<string> => {
+        const reader = new FileReader()
+        return new Promise<string>(resolve => {
+            reader.onloadend = () => {
+                resolve(reader.result!.toString())
+            }
+            reader.readAsText(file, encoding)
+        })
+    }
+
+    const uploadGpx = async (e: InputEvent) => {
+        for (const file of (e.target as HTMLInputElement).files!) {
+            const data = await readFile(file)
+            const track = await (
+                await fetch('/track', { method: 'POST', body: JSON.stringify({ name: file.name, data }) })
+            ).json()
+            const tracks = [...$tracks(), track]
+            tracks.sort((a, b) => compareDesc(a.timestamp, b.timestamp))
+            setTracks(tracks)
+        }
+    }
+
     const formatDuration = (secondsTotal: number) => {
         let total = secondsTotal
         const hours = Math.floor(total / 3600)
@@ -411,6 +440,12 @@ const Main: Component = () => {
         <>
             <div id="map" />
             <div id="overlay">
+                <div class="import">
+                    <input type="file" ref={importInput} hidden={true} onInput={uploadGpx} />
+                    <button type="button" onClick={() => importInput.click()}>
+                        Import GPX
+                    </button>
+                </div>
                 <table class="tracks">
                     <tbody>
                         <For each={$tracks()}>
