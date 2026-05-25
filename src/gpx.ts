@@ -7,7 +7,8 @@ import { elevationAt } from './geotiff'
 /**
  * Elevation discrepancy after which rely on GPS data only (bridges/tunnels)
  */
-const elevationThreshold = 5
+export const elevationThreshold = 5
+export const averageSpeedWindowSeconds = 60
 
 export const parseGpx = async (name: string, data: string): Promise<Track> => {
     const stream = sax.createStream()

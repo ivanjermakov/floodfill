@@ -7,6 +7,7 @@ import { Component, For, Show, createEffect, createSignal, onMount } from 'solid
 import { render } from 'solid-js/web'
 import { Grid } from './Grid'
 import { Track, Trackpoint } from './api'
+import { averageSpeedWindowSeconds } from './gpx'
 import './index.css'
 
 const pathColors = [
@@ -40,24 +41,6 @@ const hash = (str: string) => {
     return hash >>> 0
 }
 
-// TODO: server
-const gpxs = [
-    '20260430-181917.gpx',
-    '20260507-185410.gpx',
-    '20260510-160805.gpx',
-    '20260511-184017.gpx',
-    '20260512-181352.gpx',
-    '20260513-170937.gpx',
-    '20260514-115529.gpx',
-    '20260515-192042.gpx',
-    '20260517-110028.gpx',
-    '20260518-150758.gpx',
-    '20260519-180403.gpx',
-    '20260520-174005.gpx',
-    '20260521-182806.gpx',
-    '20260524-192645.gpx'
-]
-
 const movingSpeedThreshold = 4
 
 let map!: Map
@@ -66,7 +49,7 @@ const [$windowSize, setWindowSize] = createSignal<{ width: number; height: numbe
 const [$tracks, setTracks] = createSignal<Track[]>([])
 const [$trackActive, setTrackActive] = createSignal<Track | undefined>()
 let chartSvg!: SVGSVGElement
-const chartMargin = { top: 0, right: 30, bottom: 20, left: 30 }
+const chartMargin = { top: 0, right: 0, bottom: 20, left: 0 }
 const [$trackpointActive, setTrackpointActive] = createSignal<Trackpoint | undefined>()
 
 let importInput!: HTMLInputElement
@@ -168,7 +151,7 @@ const Main: Component = () => {
 
         tracks.sort((a, b) => compareDesc(a.timestamp, b.timestamp))
         setTracks(tracks)
-        // setTrackActive(tracks[0])
+        setTrackActive(tracks[0])
         console.debug(tracks)
     })
 
@@ -192,23 +175,28 @@ const Main: Component = () => {
         const width = chartSvg.clientWidth
         const height = chartSvg.clientHeight
 
-        chartSvg.addEventListener('mousemove', e =>
-            setTrackpointActive(
-                trackActive.filtered.at(
-                    Math.floor(
-                        ((e.offsetX - chartMargin.left) / (width - chartMargin.left - chartMargin.right)) *
-                            trackActive.filtered.length
-                    )
-                )
+        chartSvg.addEventListener('mousemove', e => {
+            if (e.offsetX < chartMargin.left || e.offsetX > width - chartMargin.right) {
+                setTrackpointActive(undefined)
+                return
+            }
+            const idx = Math.floor(
+                ((e.offsetX - chartMargin.left) / (width - chartMargin.left - chartMargin.right)) *
+                    trackActive.filtered.length
             )
-        )
+            if (idx < 0 || idx >= trackActive.filtered.length) {
+                setTrackpointActive(undefined)
+                return
+            }
+            setTrackpointActive(trackActive.filtered[idx])
+        })
         chartSvg.addEventListener('mouseleave', () => setTrackpointActive(undefined))
 
         const chart = select(chartSvg)
         const elevationData = trackActive.filtered.map(p => ({ date: new Date(p.timestamp!), value: p.position[2] }))
         const xScale = scaleTime()
             .domain(extent(elevationData, d => d.date) as [Date, Date])
-            .range([0, width - chartMargin.left - chartMargin.right])
+            .range([chartMargin.left, width - chartMargin.right])
 
         const elevationScale = scaleLinear()
             .domain([min(elevationData, d => d.value)!, max(elevationData, d => d.value)!])
@@ -220,7 +208,7 @@ const Main: Component = () => {
         chart.selectChildren().remove()
         chart
             .append('g')
-            .attr('transform', `translate(${chartMargin.left},${height - chartMargin.bottom})`)
+            .attr('transform', `translate(0, ${height - chartMargin.bottom})`)
             .call(
                 axisBottom(xScale)
                     .tickFormat(d => format(d as Date, 'HH:mm'))
@@ -233,7 +221,7 @@ const Main: Component = () => {
             .attr('fill', 'none')
             .attr('stroke', pathColors[0])
             .attr('stroke-width', 1)
-            .attr('transform', `translate(${chartMargin.left},${chartMargin.top})`)
+            .attr('transform', `translate(0, ${chartMargin.top})`)
             .attr('d', elevationLine)
         chart
             .append('g')
@@ -256,12 +244,30 @@ const Main: Component = () => {
                 .datum(speedData)
                 .attr('fill', 'none')
                 .attr('stroke', pathColors[1])
+                .attr('opacity', 0.3)
                 .attr('stroke-width', 1)
-                .attr('transform', `translate(${chartMargin.left},${chartMargin.top})`)
+                .attr('transform', `translate(0, ${chartMargin.top})`)
                 .attr('d', speedLine)
+
+            const avgSpeedData = []
+            for (let i = 0; i < speedData.length; i++) {
+                const slice = speedData.slice(Math.max(0, i - averageSpeedWindowSeconds), i).map(d => d.value)
+                let avg = slice.reduce((a, b) => a + b, 0) / slice.length
+                if (Number.isNaN(avg)) avg = 0
+                avgSpeedData.push({ date: speedData[i].date, value: avg })
+            }
+            chart
+                .append('path')
+                .datum(avgSpeedData)
+                .attr('fill', 'none')
+                .attr('stroke', pathColors[1])
+                .attr('stroke-width', 1)
+                .attr('transform', `translate(0, ${chartMargin.top})`)
+                .attr('d', speedLine)
+
             chart
                 .append('g')
-                .attr('transform', `translate(${width - chartMargin.left}, ${chartMargin.top})`)
+                .attr('transform', `translate(${width - chartMargin.right}, ${chartMargin.top})`)
                 .call(axisRight(speedScale).ticks(height / 30))
         }
     })
@@ -368,12 +374,23 @@ const Main: Component = () => {
     }
 
     const trackpointCompactPreview = (tp: Trackpoint, track: Track) => {
+        const index = track.filtered.indexOf(tp)
         const timestamp = tp.timestamp ? format(tp.timestamp, 'HH:mm:ss') : ''
         const duration = tp.timestamp
             ? formatDuration(differenceInSeconds(tp.timestamp, track.filtered[0].timestamp!)).padStart(5)
             : ''
         const elevation = tp.position.length > 2 ? `${tp.position[2].toFixed()}m`.padStart(4) : ''
-        const speed = tp.speed ? `${tp.speed.toFixed()}kph`.padStart(5) : ''
+
+        let speed = ''
+        if (tp.speed) {
+            const slice = track.filtered
+                .slice(Math.max(0, index - averageSpeedWindowSeconds), index)
+                .map(d => d.speed ?? 0)
+            let avg = slice.reduce((a, b) => a + b, 0) / slice.length
+            if (Number.isNaN(avg)) avg = 0
+            speed = `${avg.toFixed(1)}kph`.padStart(5)
+        }
+
         return [timestamp, `${(tp.distance / 1000).toFixed(1)}km`, duration, elevation, speed]
             .filter(s => s !== '')
             .join(' ')
