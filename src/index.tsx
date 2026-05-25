@@ -441,7 +441,7 @@ const Main: Component = () => {
             <div id="map" />
             <div id="overlay">
                 <div class="import">
-                    <input type="file" ref={importInput} hidden={true} onInput={uploadGpx} />
+                    <input type="file" ref={importInput} hidden={true} multiple={true} onInput={uploadGpx} />
                     <button type="button" onClick={() => importInput.click()}>
                         Import GPX
                     </button>
