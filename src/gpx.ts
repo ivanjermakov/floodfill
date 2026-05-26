@@ -1,4 +1,5 @@
-import { compareAsc, differenceInSeconds } from 'date-fns'
+import { utc } from '@date-fns/utc'
+import { addSeconds, compareAsc, differenceInSeconds, formatISO } from 'date-fns'
 import sax from 'sax'
 import { Track, Trackpoint } from './api'
 import { distanceHaversine } from './geo'
@@ -53,6 +54,30 @@ export const parseGpx = async (name: string, data: string): Promise<Track> => {
     stream.end()
 
     trackpoints.sort((a, b) => compareAsc(a.timestamp, b.timestamp))
+
+    let i = 0
+    let timestamp = trackpoints[0].timestamp
+    const timestampLast = trackpoints.at(-1)!.timestamp
+    while (timestamp !== timestampLast) {
+        const tp = trackpoints[i]
+        const cmp = compareAsc(timestamp, tp.timestamp)
+        switch (cmp) {
+            case -1:
+                const dup = { ...tp, timestamp }
+                trackpoints.splice(i, 0, dup)
+                timestamp = formatISO(addSeconds(timestamp, 1), { in: utc })
+                i++
+                break
+            case 0:
+                timestamp = formatISO(addSeconds(timestamp, 1), { in: utc })
+                i++
+                break
+            case 1:
+                // when GPX has trackpoints with duplicate timestamp
+                trackpoints.splice(i, 1)
+                break
+        }
+    }
 
     for (const tp of trackpoints) {
         const e = await elevationAt(tp.position[0], tp.position[1])

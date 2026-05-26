@@ -24,6 +24,7 @@
         "vite-plugin-solid": "2.11.11"
     },
     "dependencies": {
+        "@date-fns/utc": "2.1.1",
         "@turf/destination": "7.3.5",
         "@turf/distance": "7.3.5",
         "d3": "7.9.0",

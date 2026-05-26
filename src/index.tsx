@@ -49,7 +49,7 @@ const [$windowSize, setWindowSize] = createSignal<{ width: number; height: numbe
 const [$tracks, setTracks] = createSignal<Track[]>([])
 const [$trackActive, setTrackActive] = createSignal<Track | undefined>()
 let chartSvg!: SVGSVGElement
-const chartMargin = { top: 0, right: 0, bottom: 20, left: 0 }
+const chartMargin = { top: 10, right: 30, bottom: 20, left: 30 }
 const [$trackpointActive, setTrackpointActive] = createSignal<Trackpoint | undefined>()
 
 let importInput!: HTMLInputElement
@@ -114,7 +114,8 @@ const Main: Component = () => {
             }
         })
 
-        setTracks(await (await fetch('/tracks')).json())
+        const tracks: Track[] = await (await fetch('/tracks')).json()
+        setTracks(tracks)
     })
 
     createEffect(async () => {
@@ -151,7 +152,7 @@ const Main: Component = () => {
 
         tracks.sort((a, b) => compareDesc(a.timestamp, b.timestamp))
         setTracks(tracks)
-        setTrackActive(tracks[0])
+        // setTrackActive(tracks[0])
         console.debug(tracks)
     })
 
