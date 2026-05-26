@@ -7,6 +7,7 @@ services:
     network_mode: "host"
     volumes:
       - ./database.db:/database.db:rw
+      - ./resource:/resource
     environment:
       - FLOODFILL_DIST=dist
       - FLOODFILL_PORT=3005
