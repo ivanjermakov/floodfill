@@ -8,10 +8,10 @@ https://brouter.de/brouter-web
 
 ## Workflow
 
-1. Plan track with [BRouter](https://brouter.de/brouter-web)
-2. Load plan GPX into [Organic Maps](https://organicmaps.app)
-3. Track actual GPX with [OutRun](https://outrun.tadris.de)
-4. Load actual GPX into Flood Fill
+1. Plan track with [BRouter](https://brouter.de/brouter-web) and export plan GPX
+2. Import plan GPX into [Organic Maps](https://organicmaps.app) for navigation
+3. Track actual GPX with [OutRun](https://outrun.tadris.de) or [Strava](https://www.strava.com)
+4. Import actual GPX into Flood Fill
 
 ## Credit
 
