@@ -1,4 +1,4 @@
-import { format } from 'date-fns'
+import { format } from 'date-fns/format'
 import { IncomingMessage } from 'http'
 
 export const log = (level: string, stdout: boolean, ...data: any[]): void => {

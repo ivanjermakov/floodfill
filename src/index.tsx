@@ -1,7 +1,9 @@
 /* @refresh reload */
 
 import { Selection, axisBottom, axisLeft, axisRight, extent, line, max, min, scaleLinear, scaleTime, select } from 'd3'
-import { compareDesc, differenceInSeconds, format } from 'date-fns'
+import { compareDesc } from 'date-fns/compareDesc'
+import { differenceInSeconds } from 'date-fns/differenceInSeconds'
+import { format } from 'date-fns/format'
 import { GeoJSONSource, Map } from 'maplibre-gl'
 import { Component, For, Show, createEffect, createSignal, onMount } from 'solid-js'
 import { render } from 'solid-js/web'
@@ -120,6 +122,7 @@ const Main: Component = () => {
 
     createEffect(async () => {
         const tracks = $tracks()
+        // TODO: add tracks in reverse order so latest are on top
         await Promise.all(
             tracks.map(async track => {
                 if (map.getLayer(track.name)) return
