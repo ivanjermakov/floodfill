@@ -86,7 +86,10 @@ const Main: Component = () => {
         )
         await new Promise(done => map.on('load', done))
 
-        // const nodes: { lon: string; lat: string }[] = await (await fetch('/nodes')).json()
+        await Promise.all([loadNodes(), loadTracks()])
+    })
+
+    const loadNodes = async () => {
         const nodes: [string, string][][] = await (await fetch('/nodes.json')).json()
         console.debug(nodes)
         map.addLayer({
@@ -115,16 +118,17 @@ const Main: Component = () => {
                 'line-width': 1
             }
         })
+    }
 
+    const loadTracks = async () => {
         const trackTimestamps: string[] = await (await fetch('/tracks')).json()
         const tracks = await Promise.all(
             trackTimestamps.map(
                 async timestamp => await (await fetch(`/track?timestamp=${encodeURIComponent(timestamp)}`)).json()
             )
         )
-        console.log(tracks)
         setTracks(tracks)
-    })
+    }
 
     createEffect(async () => {
         const tracks = $tracks()
