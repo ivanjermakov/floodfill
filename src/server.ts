@@ -1,6 +1,7 @@
 import { createReadStream } from 'fs'
 import { IncomingMessage, ServerResponse, createServer } from 'http'
 import { extname, join, normalize } from 'path'
+import { gzip } from 'zlib'
 import { stat } from 'fs/promises'
 import { exit } from 'process'
 import { groupBy } from './array'
@@ -136,6 +137,18 @@ select w.id, n.lat, n.lon
             return
         }
         res.setHeader('Content-Type', contentType['.json'])
+        if (req.headers['accept-encoding']?.includes('gzip')) {
+            res.setHeader('Content-Encoding', 'gzip')
+            const gzipped = await new Promise((resolve, reject) =>
+                gzip(raw[0].data, (e, buf) => {
+                    e ? reject() : resolve(buf)
+                })
+            )
+            res.write(gzipped)
+            res.statusCode = 200
+            res.end()
+            return
+        }
         res.write(raw[0].data)
         res.statusCode = 200
         res.end()
