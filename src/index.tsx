@@ -116,7 +116,13 @@ const Main: Component = () => {
             }
         })
 
-        const tracks: Track[] = await (await fetch('/tracks')).json()
+        const trackTimestamps: string[] = await (await fetch('/tracks')).json()
+        const tracks = await Promise.all(
+            trackTimestamps.map(
+                async timestamp => await (await fetch(`/track?timestamp=${encodeURIComponent(timestamp)}`)).json()
+            )
+        )
+        console.log(tracks)
         setTracks(tracks)
     })
 

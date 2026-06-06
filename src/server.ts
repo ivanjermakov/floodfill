@@ -8,6 +8,7 @@ import { db, initDb, sql } from './db'
 import { initGeo } from './geotiff'
 import { parseGpx } from './gpx'
 import { debug, error, info, request } from './log'
+import { assertSearchParams } from './url'
 
 const streamFile = (filePath: string, res: ServerResponse): void => {
     const ext = extname(filePath).toLowerCase()
@@ -118,9 +119,24 @@ select w.id, n.lat, n.lon
     }
 
     if (url.pathname === '/tracks') {
-        const raw = await db.all(sql`select data from Track order by timestamp desc`)
+        const raw = await db.all(sql`select timestamp from Track order by timestamp desc`)
         res.setHeader('Content-Type', contentType['.json'])
-        res.write(JSON.stringify(raw.map(r => JSON.parse(r.data))))
+        res.write(JSON.stringify(raw.map(r => r.timestamp)))
+        res.statusCode = 200
+        res.end()
+        return
+    }
+
+    if (url.pathname === '/track') {
+        const params = assertSearchParams(url, ['timestamp'])
+        const raw = await db.all(sql`select data from Track where timestamp = ? limit 1`, params.timestamp)
+        if (raw.length !== 1) {
+            res.statusCode = 404
+            res.end()
+            return
+        }
+        res.setHeader('Content-Type', contentType['.json'])
+        res.write(raw[0].data)
         res.statusCode = 200
         res.end()
         return
