@@ -58,6 +58,9 @@ let importInput!: HTMLInputElement
 
 const Main: Component = () => {
     onMount(async () => {
+        const $nodes: Promise<[string, string][][]> = fetch('/nodes.json').then(r => r.json())
+        const $tracks = loadTracks()
+
         window.addEventListener('resize', () => setWindowSize({ width: window.innerWidth, height: window.innerHeight }))
         map = new Map({
             container: 'map',
@@ -86,11 +89,7 @@ const Main: Component = () => {
         )
         await new Promise(done => map.on('load', done))
 
-        await Promise.all([loadNodes(), loadTracks()])
-    })
-
-    const loadNodes = async () => {
-        const nodes: [string, string][][] = await (await fetch('/nodes.json')).json()
+        const nodes = await $nodes
         console.debug(nodes)
         map.addLayer({
             id: 'nodes',
@@ -118,16 +117,19 @@ const Main: Component = () => {
                 'line-width': 1
             }
         })
-    }
+
+        const tracks = await $tracks
+        setTracks(tracks)
+    })
 
     const loadTracks = async () => {
         const trackTimestamps: string[] = await (await fetch('/tracks')).json()
-        const tracks = await Promise.all(
-            trackTimestamps.map(
-                async timestamp => await (await fetch(`/track?timestamp=${encodeURIComponent(timestamp)}`)).json()
-            )
+        return await Promise.all(
+            trackTimestamps.map(async timestamp => {
+                const track: Track = await (await fetch(`/track?timestamp=${encodeURIComponent(timestamp)}`)).json()
+                return track
+            })
         )
-        setTracks(tracks)
     }
 
     createEffect(async () => {
