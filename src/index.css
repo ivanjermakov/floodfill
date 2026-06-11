@@ -148,6 +148,7 @@ select {
         align-items: start;
         padding: .5rem;
         gap: .5rem;
+        height: 100vh;
 
         .tracks, .track-active, .import {
             pointer-events: auto;
@@ -159,33 +160,38 @@ select {
         }
 
         .tracks {
-            width: fit-content;
-            border-collapse: collapse;
+            display: flex;
+            overflow: auto;
 
-            td {
-                padding-right: 1ch;
+            table {
+                border-collapse: collapse;
+                width: fit-content;
 
-                &:last-child {
-                    padding-right: 0;
+                td {
+                    padding-right: 1ch;
+
+                    &:last-child {
+                        padding-right: 0;
+                    }
+
+                    & > svg {
+                        display: flex;
+                    }
                 }
 
-                & > svg {
-                    display: flex;
+                tr:hover, tr.active {
+                    background-color: rgba(255, 255, 255, .2);
+                    cursor: pointer;
                 }
-            }
 
-            tr:hover, tr.active {
-                background-color: rgba(255, 255, 255, .2);
-                cursor: pointer;
-            }
+                tr:last-child {
+                    background-color: unset;
+                    cursor: auto;
+                }
 
-            tr:last-child {
-                background-color: unset;
-                cursor: auto;
-            }
-
-            .number {
-                text-align: right;
+                .number {
+                    text-align: right;
+                }
             }
         }
 

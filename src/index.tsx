@@ -495,59 +495,64 @@ const Main: Component = () => {
                         Import GPX
                     </button>
                 </div>
-                <table class="tracks">
-                    <tbody>
-                        <For each={$tracks()}>
-                            {track => (
-                                <tr
-                                    onClick={() => {
-                                        const active = $trackActive() === track
-                                        setTrackActive(undefined)
-                                        setTrackActive(active ? undefined : track)
-                                    }}
-                                    onMouseEnter={() => setTrackHovered(track)}
-                                    onMouseLeave={() => setTrackHovered(undefined)}
-                                    classList={{ active: track.timestamp === $trackActive()?.timestamp }}
-                                >
-                                    <td class="icon">
-                                        <CgShapeCircle
-                                            style={{
-                                                color: pathColors[Math.floor(hash(track.name) % pathColors.length)]
-                                            }}
-                                        />
-                                    </td>
-                                    <td>{format(track.timestamp, 'yyyy-MM-dd HH:mm')}</td>
-                                    <td class="number">{(track.distance / 1000).toFixed(1)}km</td>
-                                    <td class="number">{track.duration ? formatDuration(track.duration) : 'N/A'}</td>
-                                    <td class="number">
-                                        {track.duration ? `${averageSpeed(track).toFixed(1)}kph` : 'N/A'}
-                                    </td>
-                                    <td class="number">{`${track.elevation.asc.toFixed()}up`}</td>
-                                </tr>
-                            )}
-                        </For>
-                        <tr>
-                            <td />
-                            <td>Total</td>
-                            <td class="number">
-                                {(
-                                    $tracks()
-                                        .map(t => t.distance)
-                                        .reduce((a, b) => a + b, 0) / 1000
-                                ).toFixed()}
-                                km
-                            </td>
-                            <td class="number">
-                                {`${(
-                                    $tracks()
-                                        .map(t => t.duration ?? 0)
-                                        .reduce((a, b) => a + b, 0) / 3600
-                                ).toFixed()}h`}
-                            </td>
-                            <td />
-                        </tr>
-                    </tbody>
-                </table>
+                <div class="tracks">
+                    <table>
+                        <tbody>
+                            <For each={$tracks()}>
+                                {track => (
+                                    <tr
+                                        onClick={() => {
+                                            const active = $trackActive() === track
+                                            setTrackActive(undefined)
+                                            setTrackActive(active ? undefined : track)
+                                        }}
+                                        onMouseEnter={() => setTrackHovered(track)}
+                                        onMouseLeave={() => setTrackHovered(undefined)}
+                                        classList={{ active: track.timestamp === $trackActive()?.timestamp }}
+                                    >
+                                        <td class="icon">
+                                            <CgShapeCircle
+                                                style={{
+                                                    color: pathColors[Math.floor(hash(track.name) % pathColors.length)]
+                                                }}
+                                            />
+                                        </td>
+                                        <td>{format(track.timestamp, 'yyyy-MM-dd HH:mm')}</td>
+                                        <td class="number">{(track.distance / 1000).toFixed(1)}km</td>
+                                        <td class="number">
+                                            {track.duration ? formatDuration(track.duration) : 'N/A'}
+                                        </td>
+                                        <td class="number">
+                                            {track.duration ? `${averageSpeed(track).toFixed(1)}kph` : 'N/A'}
+                                        </td>
+                                        <td class="number">{`${track.elevation.asc.toFixed()}up`}</td>
+                                    </tr>
+                                )}
+                            </For>
+                            <tr>
+                                <td />
+                                <td>Total</td>
+                                <td class="number">
+                                    {(
+                                        $tracks()
+                                            .map(t => t.distance)
+                                            .reduce((a, b) => a + b, 0) / 1000
+                                    ).toFixed()}
+                                    km
+                                </td>
+                                <td class="number">
+                                    {`${(
+                                        $tracks()
+                                            .map(t => t.duration ?? 0)
+                                            .reduce((a, b) => a + b, 0) / 3600
+                                    ).toFixed()}h`}
+                                </td>
+                                <td />
+                                <td />
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
                 <Show when={$trackActive()}>
                     <div class="track-active">
                         <header>
