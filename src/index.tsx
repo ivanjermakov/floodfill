@@ -49,6 +49,7 @@ let map!: Map
 
 const [$windowSize, setWindowSize] = createSignal<{ width: number; height: number }>()
 const [$tracks, setTracks] = createSignal<Track[]>([])
+const [$trackHovered, setTrackHovered] = createSignal<Track | undefined>()
 const [$trackActive, setTrackActive] = createSignal<Track | undefined>()
 let chartSvg!: SVGSVGElement
 const chartMargin = { top: 10, right: 30, bottom: 20, left: 30 }
@@ -159,6 +160,7 @@ const Main: Component = () => {
                     },
                     paint: {
                         'line-color': pathColors[Math.floor(hash(track.name) % pathColors.length)],
+                        'line-opacity-transition': { duration: 0 },
                         'line-width': 2
                     }
                 })
@@ -358,6 +360,20 @@ const Main: Component = () => {
         })
     })
 
+    createEffect(() => {
+        const tracks = $tracks()
+        const trackHovered = $trackHovered()
+        tracks
+            .filter(track => map.getLayer(track.name))
+            .forEach(track =>
+                map.setPaintProperty(
+                    track.name,
+                    'line-opacity',
+                    trackHovered === undefined || track.name === trackHovered.name ? 1 : 0.3
+                )
+            )
+    })
+
     const readFile = async (file: File, encoding: string = 'utf-8'): Promise<string> => {
         const reader = new FileReader()
         return new Promise<string>(resolve => {
@@ -489,6 +505,8 @@ const Main: Component = () => {
                                         setTrackActive(undefined)
                                         setTrackActive(active ? undefined : track)
                                     }}
+                                    onMouseEnter={() => setTrackHovered(track)}
+                                    onMouseLeave={() => setTrackHovered(undefined)}
                                     classList={{ active: track.timestamp === $trackActive()?.timestamp }}
                                 >
                                     <td>{format(track.timestamp, 'yyyy-MM-dd HH:mm')}</td>
