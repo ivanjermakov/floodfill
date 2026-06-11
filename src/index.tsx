@@ -5,6 +5,7 @@ import { compareDesc } from 'date-fns/compareDesc'
 import { differenceInSeconds } from 'date-fns/differenceInSeconds'
 import { format } from 'date-fns/format'
 import { GeoJSONSource, Map } from 'maplibre-gl'
+import { CgShapeCircle } from 'solid-icons/cg'
 import { Component, For, Show, createEffect, createSignal, onMount } from 'solid-js'
 import { render } from 'solid-js/web'
 import { Grid } from './Grid'
@@ -508,6 +509,13 @@ const Main: Component = () => {
                                     onMouseLeave={() => setTrackHovered(undefined)}
                                     classList={{ active: track.timestamp === $trackActive()?.timestamp }}
                                 >
+                                    <td class="icon">
+                                        <CgShapeCircle
+                                            style={{
+                                                color: pathColors[Math.floor(hash(track.name) % pathColors.length)]
+                                            }}
+                                        />
+                                    </td>
                                     <td>{format(track.timestamp, 'yyyy-MM-dd HH:mm')}</td>
                                     <td class="number">{(track.distance / 1000).toFixed(1)}km</td>
                                     <td class="number">{track.duration ? formatDuration(track.duration) : 'N/A'}</td>
@@ -519,6 +527,7 @@ const Main: Component = () => {
                             )}
                         </For>
                         <tr>
+                            <td />
                             <td>Total</td>
                             <td class="number">
                                 {(

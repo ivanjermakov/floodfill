@@ -168,6 +168,10 @@ select {
                 &:last-child {
                     padding-right: 0;
                 }
+
+                & > svg {
+                    display: flex;
+                }
             }
 
             tr:hover, tr.active {

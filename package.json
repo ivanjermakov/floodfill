@@ -33,6 +33,7 @@
         "geotiff": "3.0.5",
         "maplibre-gl": "5.24.0",
         "sax": "1.6.0",
+        "solid-icons": "1.2.0",
         "solid-js": "1.9.12",
         "sqlite": "5.1.1",
         "sqlite3": "6.0.1"
