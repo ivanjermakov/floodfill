@@ -135,9 +135,9 @@ const Main: Component = () => {
 
     createEffect(async () => {
         const tracks = $tracks()
-        // TODO: add tracks in reverse order so latest are on top
+        tracks.sort((a, b) => compareDesc(a.timestamp, b.timestamp))
         await Promise.all(
-            tracks.map(async track => {
+            tracks.toReversed().map(async track => {
                 if (map.getLayer(track.name)) return
                 map.addLayer({
                     id: track.name,
@@ -167,7 +167,6 @@ const Main: Component = () => {
             })
         )
 
-        tracks.sort((a, b) => compareDesc(a.timestamp, b.timestamp))
         setTracks(tracks)
         // setTrackActive(tracks[0])
         console.debug(tracks)
