@@ -150,13 +150,19 @@ select {
         gap: .5rem;
         height: 100vh;
 
-        .tracks, .track-active, .import {
+        header, .tracks, .track-active {
             pointer-events: auto;
         }
 
         .tracks, .track-active {
             background-color: rgba(0, 0, 0, .6);
             padding: .5rem;
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            gap: .5rem;
         }
 
         .tracks {

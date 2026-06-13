@@ -3,14 +3,43 @@
 import { Selection, axisBottom, axisLeft, axisRight, extent, line, max, min, scaleLinear, scaleTime, select } from 'd3'
 import { differenceInSeconds } from 'date-fns/differenceInSeconds'
 import { format } from 'date-fns/format'
-import { GeoJSONSource, Map } from 'maplibre-gl'
+import { AddLayerObject, GeoJSONSource, Map } from 'maplibre-gl'
 import { CgShapeCircle } from 'solid-icons/cg'
-import { Component, For, Show, createEffect, createSignal, onMount } from 'solid-js'
+import { Component, For, Match, Show, Switch, createEffect, createSignal, onMount } from 'solid-js'
 import { render } from 'solid-js/web'
 import { Grid } from './Grid'
 import { Track, Trackpoint } from './api'
 import { averageSpeedWindowSeconds } from './gpx'
 import './index.css'
+
+const style = {
+    stadia: {
+        id: 'stadia',
+        type: 'raster',
+        source: {
+            type: 'raster',
+            tiles: ['https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}.png'],
+            tileSize: 256,
+            maxzoom: 20
+        },
+        layout: {
+            visibility: 'none'
+        }
+    } as AddLayerObject,
+    cyclosm: {
+        id: 'cyclosm',
+        type: 'raster',
+        source: {
+            type: 'raster',
+            tiles: ['https://b.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png'],
+            tileSize: 256,
+            maxzoom: 20
+        },
+        layout: {
+            visibility: 'none'
+        }
+    } as AddLayerObject
+}
 
 const pathColors = [
     '#eff1f3',
@@ -47,6 +76,7 @@ const movingSpeedThreshold = 4
 
 let map!: Map
 
+const [$mapLoaded, setMapLoaded] = createSignal(false)
 const [$windowSize, setWindowSize] = createSignal<{ width: number; height: number }>()
 const [$tracks, setTracks] = createSignal<Track[]>([])
 const [$trackHovered, setTrackHovered] = createSignal<Track | undefined>()
@@ -54,6 +84,8 @@ const [$trackActive, setTrackActive] = createSignal<Track | undefined>()
 let chartSvg!: SVGSVGElement
 const chartMargin = { top: 10, right: 30, bottom: 20, left: 30 }
 const [$trackpointActive, setTrackpointActive] = createSignal<Trackpoint | undefined>()
+type Mode = 'track' | 'plan'
+const [$mode, setMode] = createSignal<Mode>('track')
 
 let importInput!: HTMLInputElement
 
@@ -65,10 +97,11 @@ const Main: Component = () => {
         window.addEventListener('resize', () => setWindowSize({ width: window.innerWidth, height: window.innerHeight }))
         map = new Map({
             container: 'map',
-            style: 'map/dark-matter.json',
+            style: { version: 8, sources: {}, layers: [] },
             attributionControl: false,
             center: [21, 52.23],
             zoom: 11,
+            pixelRatio: 1,
             canvasContextAttributes: { preserveDrawingBuffer: true }
         })
         // map.dragRotate.disable()
@@ -88,7 +121,13 @@ const Main: Component = () => {
                 }
             })
         )
+
         await new Promise(done => map.on('load', done))
+
+        map.addLayer(style.stadia)
+        map.addLayer(style.cyclosm)
+
+        setMapLoaded(true)
 
         const nodes = await $nodes
         console.debug(nodes)
@@ -373,6 +412,27 @@ const Main: Component = () => {
             )
     })
 
+    createEffect(() => {
+        const mapLoaded = $mapLoaded()
+        const mode = $mode()
+
+        if (!mapLoaded) return
+        const ids = ['stadia', 'cyclosm']
+
+        ids.forEach(id => {
+            map.setLayoutProperty(id, 'visibility', 'none')
+        })
+
+        switch (mode) {
+            case 'track':
+                map.setLayoutProperty('stadia', 'visibility', 'visible')
+                break
+            case 'plan':
+                map.setLayoutProperty('cyclosm', 'visibility', 'visible')
+                break
+        }
+    })
+
     const readFile = async (file: File, encoding: string = 'utf-8'): Promise<string> => {
         const reader = new FileReader()
         return new Promise<string>(resolve => {
@@ -488,12 +548,40 @@ const Main: Component = () => {
         <>
             <div id="map" />
             <div id="overlay">
-                <div class="import">
-                    <input type="file" ref={importInput} hidden={true} multiple={true} onInput={uploadGpx} />
-                    <button type="button" onClick={() => importInput.click()}>
-                        Import GPX
-                    </button>
-                </div>
+                <header>
+                    <div class="group">
+                        <button
+                            type="button"
+                            classList={{ active: $mode() === 'track' }}
+                            onClick={() => setMode('track')}
+                        >
+                            Track
+                        </button>
+                        <button
+                            type="button"
+                            classList={{ active: $mode() === 'plan' }}
+                            onClick={() => setMode('plan')}
+                        >
+                            Plan
+                        </button>
+                    </div>
+                    <Switch>
+                        <Match when={$mode() === 'track'}>
+                            <div class="group">
+                                <input
+                                    type="file"
+                                    ref={importInput}
+                                    hidden={true}
+                                    multiple={true}
+                                    onInput={uploadGpx}
+                                />
+                                <button type="button" onClick={() => importInput.click()}>
+                                    Import GPX
+                                </button>
+                            </div>
+                        </Match>
+                    </Switch>
+                </header>
                 <div class="tracks">
                     <table>
                         <tbody>
