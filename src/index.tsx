@@ -1,7 +1,6 @@
 /* @refresh reload */
 
 import { Selection, axisBottom, axisLeft, axisRight, extent, line, max, min, scaleLinear, scaleTime, select } from 'd3'
-import { compareDesc } from 'date-fns/compareDesc'
 import { differenceInSeconds } from 'date-fns/differenceInSeconds'
 import { format } from 'date-fns/format'
 import { GeoJSONSource, Map } from 'maplibre-gl'
@@ -136,7 +135,7 @@ const Main: Component = () => {
 
     createEffect(async () => {
         const tracks = $tracks()
-        tracks.sort((a, b) => compareDesc(a.timestamp, b.timestamp))
+        tracks.sort((a, b) => (a.timestamp < b.timestamp ? -1 : 1))
         await Promise.all(
             tracks.toReversed().map(async track => {
                 if (map.getLayer(track.name)) return
@@ -391,7 +390,7 @@ const Main: Component = () => {
                 await fetch('/track', { method: 'POST', body: JSON.stringify({ name: file.name, data }) })
             ).json()
             const tracks = [...$tracks(), track]
-            tracks.sort((a, b) => compareDesc(a.timestamp, b.timestamp))
+            tracks.sort((a, b) => (a.timestamp < b.timestamp ? -1 : 1))
             setTracks(tracks)
         }
     }
