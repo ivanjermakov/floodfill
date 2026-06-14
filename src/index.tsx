@@ -164,7 +164,7 @@ const Main: Component = () => {
             },
             paint: {
                 'line-color': '#aa5555',
-                'line-width': 2
+                'line-width': 1
             }
         })
 
@@ -517,6 +517,7 @@ const Main: Component = () => {
         tracks
             .filter(track => map.getLayer(track.name))
             .forEach(track => map.setLayoutProperty(track.name, 'visibility', mode === 'track' ? 'visible' : 'none'))
+        map.setLayoutProperty('nodes', 'visibility', mode === 'track' ? 'visible' : 'none')
     }
 
     const readFile = async (file: File, encoding: string = 'utf-8'): Promise<string> => {
