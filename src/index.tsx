@@ -191,9 +191,10 @@ const Main: Component = () => {
 
             const distances = routeWaypoints.map(wp => distance(wp, e.lngLat.toArray()))
             const idx = distances.indexOf(Math.min(...distances))
-            console.log(idx)
             e.preventDefault()
         })
+        map.on('mouseenter', 'route-waypoints', () => (map.getCanvas().style.cursor = 'crosshair'))
+        map.on('mouseleave', 'route-waypoints', () => (map.getCanvas().style.cursor = 'auto'))
 
         map.addLayer({
             id: 'route-lines',
