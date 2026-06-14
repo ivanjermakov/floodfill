@@ -187,11 +187,12 @@ const Main: Component = () => {
             }
         })
         map.on('click', 'route-waypoints', e => {
+            e.preventDefault()
             const routeWaypoints = $routeWaypoints()
 
             const distances = routeWaypoints.map(wp => distance(wp, e.lngLat.toArray()))
             const idx = distances.indexOf(Math.min(...distances))
-            e.preventDefault()
+            setRouteWaypoints($routeWaypoints().filter((_, i) => i !== idx))
         })
         map.on('mouseenter', 'route-waypoints', () => (map.getCanvas().style.cursor = 'crosshair'))
         map.on('mouseleave', 'route-waypoints', () => (map.getCanvas().style.cursor = 'auto'))
@@ -663,19 +664,25 @@ const Main: Component = () => {
             ]
         })
 
-        // TODO: midpoint route update
-        if (routeWaypoints.length < 2) return
-        const from = routeWaypoints.at(-2)!
-        const to = routeWaypoints.at(-1)!
-        const url = `https://brouter.de/brouter?lonlats=${from[0]},${from[1]}|${to[0]},${to[1]}&profile=trekking&alternativeidx=0&format=geojson`
-        const geojson = (await (await fetch(url)).json()) as FeatureCollection
-        route.push({
-            from,
-            to,
-            geojson
-        })
-        console.debug('route segment', geojson)
-        setRoute(route)
+        const newRoute: RouteSegment[] = []
+        for (let i = 0; i < routeWaypoints.length - 1; i++) {
+            const from = routeWaypoints[i]
+            const to = routeWaypoints[i + 1]
+            const cache = route.find(segment => segment.from === from && segment.to === to)
+            if (cache) {
+                newRoute.push(cache)
+            } else {
+                const url = `https://brouter.de/brouter?lonlats=${from[0]},${from[1]}|${to[0]},${to[1]}&profile=trekking&alternativeidx=0&format=geojson`
+                const geojson = (await (await fetch(url)).json()) as FeatureCollection
+                console.debug('route segment', geojson)
+                newRoute.push({
+                    from,
+                    to,
+                    geojson
+                })
+            }
+        }
+        setRoute(newRoute)
     }
 
     const updateHoverRouteLines = (pos: Position) => {
