@@ -2,12 +2,13 @@
     "$schema": "https://schemastore.org/package.json",
     "name": "floodfill",
     "version": "0.0.1",
-    "description": "Self-hosted GPX viewer for those with a goal to walk/run/ride every street in a $city",
+    "description": "Self-hosted cycling track manager and route planner",
     "scripts": {
         "build:fe": "tsgo && vite build",
         "watch:fe": "find src | entr npm run build:fe",
         "start:be": "node --import=tsx src/server.ts",
-        "start": "npm run build:fe && npm run start:be"
+        "start": "npm run build:fe && npm run start:be",
+        "preprocess": "node src/preprocess"
     },
     "type": "module",
     "license": "MIT",
