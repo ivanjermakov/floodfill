@@ -85,7 +85,7 @@ let chartSvg!: SVGSVGElement
 const chartMargin = { top: 10, right: 30, bottom: 20, left: 30 }
 const [$trackpointActive, setTrackpointActive] = createSignal<Trackpoint | undefined>()
 type Mode = 'track' | 'plan'
-const [$mode, setMode] = createSignal<Mode>('track')
+const [$mode, setMode] = createSignal<Mode>('plan')
 
 let importInput!: HTMLInputElement
 
@@ -417,6 +417,7 @@ const Main: Component = () => {
     createEffect(() => {
         const mapLoaded = $mapLoaded()
         const mode = $mode()
+        const tracks = $tracks()
 
         if (!mapLoaded) return
         const ids = ['stadia', 'cyclosm']
@@ -433,6 +434,10 @@ const Main: Component = () => {
                 map.setLayoutProperty('cyclosm', 'visibility', 'visible')
                 break
         }
+
+        tracks
+            .filter(track => map.getLayer(track.name))
+            .forEach(track => map.setLayoutProperty(track.name, 'visibility', mode === 'track' ? 'visible' : 'none'))
     })
 
     const readFile = async (file: File, encoding: string = 'utf-8'): Promise<string> => {
