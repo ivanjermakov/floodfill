@@ -1,12 +1,13 @@
 /* @refresh reload */
 
+import distance from '@turf/distance'
 import { Selection, axisBottom, axisLeft, axisRight, extent, line, max, min, scaleLinear, scaleTime, select } from 'd3'
 import { differenceInSeconds } from 'date-fns/differenceInSeconds'
 import { format } from 'date-fns/format'
-import { Position } from 'geojson'
+import { FeatureCollection, LineString, Position } from 'geojson'
 import { AddLayerObject, GeoJSONSource, Map } from 'maplibre-gl'
 import { CgShapeCircle } from 'solid-icons/cg'
-import { Component, For, Match, Show, Switch, createEffect, createSignal, onMount } from 'solid-js'
+import { Component, For, Match, Show, Switch, createEffect, createSignal, onMount, untrack } from 'solid-js'
 import { render } from 'solid-js/web'
 import { Grid } from './Grid'
 import { Track, Trackpoint } from './api'
@@ -65,6 +66,12 @@ const pathColors = [
     '#009fb7'
 ]
 
+type RouteSegment = {
+    from: Position
+    to: Position
+    geojson: FeatureCollection
+}
+
 const hash = (str: string) => {
     let hash = 5381
     for (let i = 0; i < str.length; i++) {
@@ -88,6 +95,7 @@ const [$trackpointActive, setTrackpointActive] = createSignal<Trackpoint | undef
 type Mode = 'track' | 'plan'
 const [$mode, setMode] = createSignal<Mode>('plan')
 const [$routeWaypoints, setRouteWaypoints] = createSignal<Position[]>([])
+const [$route, setRoute] = createSignal<RouteSegment[]>([])
 
 let importInput!: HTMLInputElement
 
@@ -123,9 +131,6 @@ const Main: Component = () => {
                 }
             })
         )
-        map.on('click', e => {
-            setRouteWaypoints([...$routeWaypoints(), e.lngLat.toArray()])
-        })
 
         await new Promise(done => map.on('load', done))
 
@@ -167,22 +172,13 @@ const Main: Component = () => {
         setTracks(tracks)
 
         map.addLayer({
-            id: 'waypoints',
+            id: 'route-waypoints',
             type: 'circle',
             source: {
                 type: 'geojson',
                 data: {
                     type: 'FeatureCollection',
-                    features: [
-                        {
-                            type: 'Feature',
-                            geometry: {
-                                type: 'Point',
-                                coordinates: []
-                            },
-                            properties: {}
-                        }
-                    ]
+                    features: []
                 }
             },
             paint: {
@@ -190,6 +186,53 @@ const Main: Component = () => {
                 'circle-color': pathColors[4]
             }
         })
+        map.on('click', 'route-waypoints', e => {
+            const routeWaypoints = $routeWaypoints()
+
+            const distances = routeWaypoints.map(wp => distance(wp, e.lngLat.toArray()))
+            const idx = distances.indexOf(Math.min(...distances))
+            console.log(idx)
+            e.preventDefault()
+        })
+
+        map.addLayer({
+            id: 'route-lines',
+            type: 'line',
+            source: {
+                type: 'geojson',
+                data: {
+                    type: 'FeatureCollection',
+                    features: []
+                }
+            },
+            paint: {
+                'line-width': 3,
+                'line-dasharray': [4, 2],
+                'line-color': pathColors[6]
+            }
+        })
+
+        map.addLayer({
+            id: 'route',
+            type: 'line',
+            source: {
+                type: 'geojson',
+                data: {
+                    type: 'FeatureCollection',
+                    features: []
+                }
+            },
+            paint: {
+                'line-width': 5,
+                'line-color': pathColors[4]
+            }
+        })
+
+        map.on('click', e => {
+            if (e.defaultPrevented) return
+            setRouteWaypoints([...$routeWaypoints(), e.lngLat.toArray()])
+        })
+        map.on('mousemove', e => updateHoverRouteLines(e.lngLat.toArray()))
     }
 
     const loadTracks = async () => {
@@ -585,19 +628,95 @@ const Main: Component = () => {
         URL.revokeObjectURL(a.href)
     }
 
-    const updateWaypoints = () => {
+    const updateRouteWaypoints = async () => {
         const routeWaypoints = $routeWaypoints()
-        const source = map.getSource('waypoints') as GeoJSONSource
+        const route = [...untrack($route)]
+        const routeWaypointsData = map.getSource('route-waypoints') as GeoJSONSource
+        const routeLinesData = map.getSource('route-lines') as GeoJSONSource
 
-        if (!source) return
-        source.setData({
+        if (!routeWaypointsData) return
+
+        routeWaypointsData.setData({
+            type: 'FeatureCollection',
+            features: routeWaypoints.map(wp => ({
+                type: 'Feature',
+                geometry: {
+                    type: 'Point',
+                    coordinates: wp
+                },
+                properties: {}
+            }))
+        })
+
+        routeLinesData.setData({
             type: 'FeatureCollection',
             features: [
                 {
                     type: 'Feature',
                     geometry: {
-                        type: 'MultiPoint',
+                        type: 'LineString',
                         coordinates: routeWaypoints
+                    },
+                    properties: {}
+                }
+            ]
+        })
+
+        // TODO: midpoint route update
+        if (routeWaypoints.length < 2) return
+        const from = routeWaypoints.at(-2)!
+        const to = routeWaypoints.at(-1)!
+        const url = `https://brouter.de/brouter?lonlats=${from[0]},${from[1]}|${to[0]},${to[1]}&profile=trekking&alternativeidx=0&format=geojson`
+        const geojson = (await (await fetch(url)).json()) as FeatureCollection
+        route.push({
+            from,
+            to,
+            geojson
+        })
+        console.debug('route segment', geojson)
+        setRoute(route)
+    }
+
+    const updateHoverRouteLines = (pos: Position) => {
+        const routeWaypoints = $routeWaypoints()
+
+        if (routeWaypoints.length < 1) return
+
+        const routeLinesData = map.getSource('route-lines') as GeoJSONSource
+        if (!routeLinesData) return
+
+        routeLinesData.setData({
+            type: 'FeatureCollection',
+            features: [
+                {
+                    type: 'Feature',
+                    geometry: {
+                        type: 'LineString',
+                        coordinates: [...routeWaypoints, pos]
+                    },
+                    properties: {}
+                }
+            ]
+        })
+    }
+
+    const updateRoute = () => {
+        const route = $route()
+
+        const routeData = map.getSource('route') as GeoJSONSource
+
+        if (!routeData) return
+
+        routeData.setData({
+            type: 'FeatureCollection',
+            features: [
+                {
+                    type: 'Feature',
+                    geometry: {
+                        type: 'MultiLineString',
+                        coordinates: route.map(
+                            segment => (segment.geojson.features[0].geometry as LineString).coordinates
+                        )
                     },
                     properties: {}
                 }
@@ -611,7 +730,8 @@ const Main: Component = () => {
     createEffect(updateActive)
     createEffect(updateHovered)
     createEffect(updateMode)
-    createEffect(updateWaypoints)
+    createEffect(updateRouteWaypoints)
+    createEffect(updateRoute)
 
     return (
         <>
