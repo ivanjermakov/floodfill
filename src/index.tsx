@@ -90,7 +90,7 @@ const [$mode, setMode] = createSignal<Mode>('plan')
 let importInput!: HTMLInputElement
 
 const Main: Component = () => {
-    onMount(async () => {
+    const mount = async () => {
         const $nodes: Promise<[string, string][][]> = fetch('/nodes.json').then(r => r.json())
         const $tracks = loadTracks()
 
@@ -154,13 +154,13 @@ const Main: Component = () => {
             },
             paint: {
                 'line-color': '#aa5555',
-                'line-width': 1
+                'line-width': 2
             }
         })
 
         const tracks = await $tracks
         setTracks(tracks)
-    })
+    }
 
     const loadTracks = async () => {
         const trackTimestamps: string[] = await (await fetch('/tracks')).json()
@@ -172,7 +172,7 @@ const Main: Component = () => {
         )
     }
 
-    createEffect(async () => {
+    const updateTracks = async () => {
         const tracks = $tracks()
         tracks.sort((a, b) => (a.timestamp < b.timestamp ? -1 : 1))
         await Promise.all(
@@ -207,14 +207,16 @@ const Main: Component = () => {
         )
 
         setTracks(tracks)
-        // setTrackActive(tracks[0])
         console.debug(tracks)
-    })
+    }
 
-    createEffect(() => {
+    const updateChart = () => {
         $windowSize()
         const trackActive = $trackActive()
         const tracks = $tracks()
+        const mode = $mode()
+
+        if (mode !== 'track') return
 
         tracks
             .filter(track => map.getLayer(track.name))
@@ -326,9 +328,9 @@ const Main: Component = () => {
                 .attr('transform', `translate(${width - chartMargin.right}, ${chartMargin.top})`)
                 .call(axisRight(speedScale).ticks(height / 30))
         }
-    })
+    }
 
-    createEffect(() => {
+    const updateActive = () => {
         const cleanup = () => {
             if (map.getLayer('active')) {
                 map.removeLayer('active')
@@ -396,9 +398,9 @@ const Main: Component = () => {
                 }
             ]
         })
-    })
+    }
 
-    createEffect(() => {
+    const updateHovered = () => {
         const tracks = $tracks()
         const trackHovered = $trackHovered()
         const trackActive = $trackActive()
@@ -412,17 +414,17 @@ const Main: Component = () => {
                     trackActive || trackHovered === undefined || track.name === trackHovered.name ? 1 : 0.3
                 )
             )
-    })
+    }
 
-    createEffect(() => {
+    const updateMode = () => {
         const mapLoaded = $mapLoaded()
         const mode = $mode()
         const tracks = $tracks()
 
         if (!mapLoaded) return
-        const ids = ['stadia', 'cyclosm']
+        const baseIds = ['stadia', 'cyclosm']
 
-        ids.forEach(id => {
+        baseIds.forEach(id => {
             map.setLayoutProperty(id, 'visibility', 'none')
         })
 
@@ -435,10 +437,12 @@ const Main: Component = () => {
                 break
         }
 
+        setTrackActive(undefined)
+
         tracks
             .filter(track => map.getLayer(track.name))
             .forEach(track => map.setLayoutProperty(track.name, 'visibility', mode === 'track' ? 'visible' : 'none'))
-    })
+    }
 
     const readFile = async (file: File, encoding: string = 'utf-8'): Promise<string> => {
         const reader = new FileReader()
@@ -551,6 +555,13 @@ const Main: Component = () => {
         URL.revokeObjectURL(a.href)
     }
 
+    onMount(mount)
+    createEffect(updateTracks)
+    createEffect(updateChart)
+    createEffect(updateActive)
+    createEffect(updateHovered)
+    createEffect(updateMode)
+
     return (
         <>
             <div id="map" />
@@ -589,78 +600,82 @@ const Main: Component = () => {
                         </Match>
                     </Switch>
                 </header>
-                <div class="tracks">
-                    <table>
-                        <tbody>
-                            <For each={$tracks()}>
-                                {track => (
-                                    <tr
-                                        onClick={() => {
-                                            const active = $trackActive() === track
-                                            setTrackActive(undefined)
-                                            setTrackActive(active ? undefined : track)
-                                        }}
-                                        onMouseEnter={() => setTrackHovered(track)}
-                                        onMouseLeave={() => setTrackHovered(undefined)}
-                                        classList={{ active: track.timestamp === $trackActive()?.timestamp }}
-                                    >
-                                        <td class="icon">
-                                            <CgShapeCircle
-                                                style={{
-                                                    color: pathColors[Math.floor(hash(track.name) % pathColors.length)]
-                                                }}
-                                            />
-                                        </td>
-                                        <td>{format(track.timestamp, 'yyyy-MM-dd HH:mm')}</td>
-                                        <td class="number">{(track.distance / 1000).toFixed(1)}km</td>
-                                        <td class="number">
-                                            {track.duration ? formatDuration(track.duration) : 'N/A'}
-                                        </td>
-                                        <td class="number">
-                                            {track.duration ? `${averageSpeed(track).toFixed(1)}kph` : 'N/A'}
-                                        </td>
-                                        <td class="number">{`${track.elevation.asc.toFixed()}up`}</td>
-                                    </tr>
-                                )}
-                            </For>
-                            <tr>
-                                <td />
-                                <td>Total</td>
-                                <td class="number">
-                                    {(
-                                        $tracks()
-                                            .map(t => t.distance)
-                                            .reduce((a, b) => a + b, 0) / 1000
-                                    ).toFixed()}
-                                    km
-                                </td>
-                                <td class="number">
-                                    {`${(
-                                        $tracks()
-                                            .map(t => t.duration ?? 0)
-                                            .reduce((a, b) => a + b, 0) / 3600
-                                    ).toFixed()}h`}
-                                </td>
-                                <td />
-                                <td />
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-                <Show when={$trackActive()}>
-                    <div class="track-active">
-                        <header>
-                            <button type="button" onClick={() => shareTrack($trackActive()!)}>
-                                Share
-                            </button>
-                            <span>
-                                {$trackpointActive()
-                                    ? trackpointCompactPreview($trackpointActive()!, $trackActive()!)
-                                    : '\u00a0'}
-                            </span>
-                        </header>
-                        <svg ref={chartSvg} />
+                <Show when={$mode() === 'track'}>
+                    <div class="tracks">
+                        <table>
+                            <tbody>
+                                <For each={$tracks()}>
+                                    {track => (
+                                        <tr
+                                            onClick={() => {
+                                                const active = $trackActive() === track
+                                                setTrackActive(undefined)
+                                                setTrackActive(active ? undefined : track)
+                                            }}
+                                            onMouseEnter={() => setTrackHovered(track)}
+                                            onMouseLeave={() => setTrackHovered(undefined)}
+                                            classList={{ active: track.timestamp === $trackActive()?.timestamp }}
+                                        >
+                                            <td class="icon">
+                                                <CgShapeCircle
+                                                    style={{
+                                                        color: pathColors[
+                                                            Math.floor(hash(track.name) % pathColors.length)
+                                                        ]
+                                                    }}
+                                                />
+                                            </td>
+                                            <td>{format(track.timestamp, 'yyyy-MM-dd HH:mm')}</td>
+                                            <td class="number">{(track.distance / 1000).toFixed(1)}km</td>
+                                            <td class="number">
+                                                {track.duration ? formatDuration(track.duration) : 'N/A'}
+                                            </td>
+                                            <td class="number">
+                                                {track.duration ? `${averageSpeed(track).toFixed(1)}kph` : 'N/A'}
+                                            </td>
+                                            <td class="number">{`${track.elevation.asc.toFixed()}up`}</td>
+                                        </tr>
+                                    )}
+                                </For>
+                                <tr>
+                                    <td />
+                                    <td>Total</td>
+                                    <td class="number">
+                                        {(
+                                            $tracks()
+                                                .map(t => t.distance)
+                                                .reduce((a, b) => a + b, 0) / 1000
+                                        ).toFixed()}
+                                        km
+                                    </td>
+                                    <td class="number">
+                                        {`${(
+                                            $tracks()
+                                                .map(t => t.duration ?? 0)
+                                                .reduce((a, b) => a + b, 0) / 3600
+                                        ).toFixed()}h`}
+                                    </td>
+                                    <td />
+                                    <td />
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
+                    <Show when={$trackActive()}>
+                        <div class="track-active">
+                            <header>
+                                <button type="button" onClick={() => shareTrack($trackActive()!)}>
+                                    Share
+                                </button>
+                                <span>
+                                    {$trackpointActive()
+                                        ? trackpointCompactPreview($trackpointActive()!, $trackActive()!)
+                                        : '\u00a0'}
+                                </span>
+                            </header>
+                            <svg ref={chartSvg} />
+                        </div>
+                    </Show>
                 </Show>
             </div>
         </>
