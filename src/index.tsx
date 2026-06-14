@@ -3,6 +3,7 @@
 import { Selection, axisBottom, axisLeft, axisRight, extent, line, max, min, scaleLinear, scaleTime, select } from 'd3'
 import { differenceInSeconds } from 'date-fns/differenceInSeconds'
 import { format } from 'date-fns/format'
+import { Position } from 'geojson'
 import { AddLayerObject, GeoJSONSource, Map } from 'maplibre-gl'
 import { CgShapeCircle } from 'solid-icons/cg'
 import { Component, For, Match, Show, Switch, createEffect, createSignal, onMount } from 'solid-js'
@@ -86,6 +87,7 @@ const chartMargin = { top: 10, right: 30, bottom: 20, left: 30 }
 const [$trackpointActive, setTrackpointActive] = createSignal<Trackpoint | undefined>()
 type Mode = 'track' | 'plan'
 const [$mode, setMode] = createSignal<Mode>('plan')
+const [$routeWaypoints, setRouteWaypoints] = createSignal<Position[]>([])
 
 let importInput!: HTMLInputElement
 
@@ -121,6 +123,9 @@ const Main: Component = () => {
                 }
             })
         )
+        map.on('click', e => {
+            setRouteWaypoints([...$routeWaypoints(), e.lngLat.toArray()])
+        })
 
         await new Promise(done => map.on('load', done))
 
@@ -160,6 +165,31 @@ const Main: Component = () => {
 
         const tracks = await $tracks
         setTracks(tracks)
+
+        map.addLayer({
+            id: 'waypoints',
+            type: 'circle',
+            source: {
+                type: 'geojson',
+                data: {
+                    type: 'FeatureCollection',
+                    features: [
+                        {
+                            type: 'Feature',
+                            geometry: {
+                                type: 'Point',
+                                coordinates: []
+                            },
+                            properties: {}
+                        }
+                    ]
+                }
+            },
+            paint: {
+                'circle-radius': 6,
+                'circle-color': pathColors[4]
+            }
+        })
     }
 
     const loadTracks = async () => {
@@ -555,12 +585,33 @@ const Main: Component = () => {
         URL.revokeObjectURL(a.href)
     }
 
+    const updateWaypoints = () => {
+        const routeWaypoints = $routeWaypoints()
+        const source = map.getSource('waypoints') as GeoJSONSource
+
+        if (!source) return
+        source.setData({
+            type: 'FeatureCollection',
+            features: [
+                {
+                    type: 'Feature',
+                    geometry: {
+                        type: 'MultiPoint',
+                        coordinates: routeWaypoints
+                    },
+                    properties: {}
+                }
+            ]
+        })
+    }
+
     onMount(mount)
     createEffect(updateTracks)
     createEffect(updateChart)
     createEffect(updateActive)
     createEffect(updateHovered)
     createEffect(updateMode)
+    createEffect(updateWaypoints)
 
     return (
         <>
