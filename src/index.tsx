@@ -401,13 +401,15 @@ const Main: Component = () => {
     createEffect(() => {
         const tracks = $tracks()
         const trackHovered = $trackHovered()
+        const trackActive = $trackActive()
+
         tracks
             .filter(track => map.getLayer(track.name))
             .forEach(track =>
                 map.setPaintProperty(
                     track.name,
                     'line-opacity',
-                    trackHovered === undefined || track.name === trackHovered.name ? 1 : 0.3
+                    trackActive || trackHovered === undefined || track.name === trackHovered.name ? 1 : 0.3
                 )
             )
     })
