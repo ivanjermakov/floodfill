@@ -249,7 +249,7 @@ const Main: Component = () => {
 
     const updateTracks = async () => {
         const tracks = $tracks()
-        tracks.sort((a, b) => (a.timestamp < b.timestamp ? -1 : 1))
+        tracks.sort((a, b) => (a.timestamp < b.timestamp ? 1 : -1))
         await Promise.all(
             tracks.toReversed().map(async track => {
                 if (map.getLayer(track.name)) return
