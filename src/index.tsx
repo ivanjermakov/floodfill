@@ -95,6 +95,7 @@ const [$trackpointActive, setTrackpointActive] = createSignal<Trackpoint | undef
 type Mode = 'track' | 'plan'
 const [$mode, setMode] = createSignal<Mode>('plan')
 const [$routeWaypoints, setRouteWaypoints] = createSignal<Position[]>([])
+const [$routeDirty, setRouteDirty] = createSignal<void>(undefined, { equals: false })
 const [$route, setRoute] = createSignal<RouteSegment[]>([])
 
 let importInput!: HTMLInputElement
@@ -193,6 +194,7 @@ const Main: Component = () => {
             const distances = routeWaypoints.map(wp => distance(wp, e.lngLat.toArray()))
             const idx = distances.indexOf(Math.min(...distances))
             setRouteWaypoints($routeWaypoints().filter((_, i) => i !== idx))
+            setRouteDirty()
         })
         map.on('mouseenter', 'route-waypoints', () => (map.getCanvas().style.cursor = 'crosshair'))
         map.on('mouseleave', 'route-waypoints', () => (map.getCanvas().style.cursor = 'auto'))
@@ -233,6 +235,7 @@ const Main: Component = () => {
         map.on('click', e => {
             if (e.defaultPrevented) return
             setRouteWaypoints([...$routeWaypoints(), e.lngLat.toArray()])
+            setRouteDirty()
         })
         map.on('mousemove', e => updateHoverRouteLines(e.lngLat.toArray()))
     }
@@ -631,7 +634,7 @@ const Main: Component = () => {
 
     const updateRouteWaypoints = async () => {
         const routeWaypoints = $routeWaypoints()
-        const route = [...untrack($route)]
+
         const routeWaypointsData = map.getSource('route-waypoints') as GeoJSONSource
         const routeLinesData = map.getSource('route-lines') as GeoJSONSource
 
@@ -662,6 +665,12 @@ const Main: Component = () => {
                 }
             ]
         })
+    }
+
+    const recalculateRoute = async () => {
+        $routeDirty()
+        const route = [...untrack($route)]
+        const routeWaypoints = untrack($routeWaypoints)
 
         const newRoute: RouteSegment[] = []
         for (let i = 0; i < routeWaypoints.length - 1; i++) {
@@ -738,6 +747,7 @@ const Main: Component = () => {
     createEffect(updateHovered)
     createEffect(updateMode)
     createEffect(updateRouteWaypoints)
+    createEffect(recalculateRoute)
     createEffect(updateRoute)
 
     return (
