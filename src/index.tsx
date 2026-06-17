@@ -189,6 +189,7 @@ const Main: Component = () => {
             }
         })
         map.on('click', 'route-waypoints', e => {
+            if (e.defaultPrevented) return
             e.preventDefault()
             const routeWaypoints = $routeWaypoints()
 
@@ -204,26 +205,47 @@ const Main: Component = () => {
             const distances = routeWaypoints.map(wp => distance(wp, e.lngLat.toArray()))
             const idx = distances.indexOf(Math.min(...distances))
             heldWaypointIndex = idx
+            map.setLayoutProperty('route-lines-hover', 'visibility', 'none')
         })
         map.on('mouseenter', 'route-waypoints', () => (map.getCanvas().style.cursor = 'crosshair'))
         map.on('mouseleave', 'route-waypoints', () => (map.getCanvas().style.cursor = 'auto'))
 
-        map.addLayer({
-            id: 'route-lines',
-            type: 'line',
-            source: {
-                type: 'geojson',
-                data: {
-                    type: 'FeatureCollection',
-                    features: []
+        const routeLinesIds = ['route-lines', 'route-lines-hover']
+        routeLinesIds.forEach(id =>
+            map.addLayer({
+                id,
+                type: 'line',
+                source: {
+                    type: 'geojson',
+                    data: {
+                        type: 'FeatureCollection',
+                        features: []
+                    }
+                },
+                paint: {
+                    'line-width': 5,
+                    'line-dasharray': [4, 2],
+                    'line-color': pathColors[6],
+                    'line-opacity': 0.5
                 }
-            },
-            paint: {
-                'line-width': 3,
-                'line-dasharray': [4, 2],
-                'line-color': pathColors[6]
-            }
+            })
+        )
+        map.on('click', 'route-lines', e => {
+            if (e.defaultPrevented) return
+
+            if (e.features?.length === 0) return
+            const pos = e.lngLat.toArray()
+            e.preventDefault()
+
+            const feature = e.features![0]
+            const insertIndex: number = feature.properties.index + 1
+            const routeWaypoints = [...$routeWaypoints()]
+            routeWaypoints.splice(insertIndex, 0, pos)
+            setRouteWaypoints(routeWaypoints)
+            setRouteDirty()
         })
+        map.on('mouseenter', 'route-lines', () => (map.getCanvas().style.cursor = 'crosshair'))
+        map.on('mouseleave', 'route-lines', () => (map.getCanvas().style.cursor = 'auto'))
 
         map.addLayer({
             id: 'route',
@@ -259,6 +281,7 @@ const Main: Component = () => {
         map.on('mouseup', () => {
             if (heldWaypointIndex === undefined) return
             heldWaypointIndex = undefined
+            map.setLayoutProperty('route-lines-hover', 'visibility', 'visible')
             setRouteDirty()
         })
     }
@@ -665,28 +688,30 @@ const Main: Component = () => {
 
         routeWaypointsData.setData({
             type: 'FeatureCollection',
-            features: routeWaypoints.map(wp => ({
+            features: routeWaypoints.map((wp, i) => ({
                 type: 'Feature',
                 geometry: {
                     type: 'Point',
                     coordinates: wp
                 },
-                properties: {}
+                properties: {
+                    index: i
+                }
             }))
         })
 
         routeLinesData.setData({
             type: 'FeatureCollection',
-            features: [
-                {
-                    type: 'Feature',
-                    geometry: {
-                        type: 'LineString',
-                        coordinates: routeWaypoints
-                    },
-                    properties: {}
+            features: routeWaypoints.slice(0, -1).map((_, i) => ({
+                type: 'Feature',
+                geometry: {
+                    type: 'LineString',
+                    coordinates: [routeWaypoints[i], routeWaypoints[i + 1]]
+                },
+                properties: {
+                    index: i
                 }
-            ]
+            }))
         })
     }
 
@@ -721,17 +746,17 @@ const Main: Component = () => {
 
         if (routeWaypoints.length < 1) return
 
-        const routeLinesData = map.getSource('route-lines') as GeoJSONSource
-        if (!routeLinesData) return
+        const routeLinesHoveredData = map.getSource('route-lines-hover') as GeoJSONSource
+        if (!routeLinesHoveredData) return
 
-        routeLinesData.setData({
+        routeLinesHoveredData.setData({
             type: 'FeatureCollection',
             features: [
                 {
                     type: 'Feature',
                     geometry: {
                         type: 'LineString',
-                        coordinates: [...routeWaypoints, pos]
+                        coordinates: [routeWaypoints.at(-1)!, pos]
                     },
                     properties: {}
                 }
