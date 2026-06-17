@@ -537,7 +537,7 @@ const Main: Component = () => {
                 await fetch('/track', { method: 'POST', body: JSON.stringify({ name: file.name, data }) })
             ).json()
             const tracks = [...$tracks(), track]
-            tracks.sort((a, b) => (a.timestamp < b.timestamp ? -1 : 1))
+            tracks.sort((a, b) => (a.timestamp < b.timestamp ? 1 : -1))
             setTracks(tracks)
         }
     }
