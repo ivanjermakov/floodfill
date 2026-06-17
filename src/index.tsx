@@ -97,6 +97,7 @@ const [$mode, setMode] = createSignal<Mode>('plan')
 const [$routeWaypoints, setRouteWaypoints] = createSignal<Position[]>([])
 const [$routeDirty, setRouteDirty] = createSignal<void>(undefined, { equals: false })
 const [$route, setRoute] = createSignal<RouteSegment[]>([])
+let heldWaypointIndex: number | undefined = undefined
 
 let importInput!: HTMLInputElement
 
@@ -196,6 +197,14 @@ const Main: Component = () => {
             setRouteWaypoints($routeWaypoints().filter((_, i) => i !== idx))
             setRouteDirty()
         })
+        map.on('mousedown', 'route-waypoints', e => {
+            e.preventDefault()
+            const routeWaypoints = $routeWaypoints()
+
+            const distances = routeWaypoints.map(wp => distance(wp, e.lngLat.toArray()))
+            const idx = distances.indexOf(Math.min(...distances))
+            heldWaypointIndex = idx
+        })
         map.on('mouseenter', 'route-waypoints', () => (map.getCanvas().style.cursor = 'crosshair'))
         map.on('mouseleave', 'route-waypoints', () => (map.getCanvas().style.cursor = 'auto'))
 
@@ -237,7 +246,21 @@ const Main: Component = () => {
             setRouteWaypoints([...$routeWaypoints(), e.lngLat.toArray()])
             setRouteDirty()
         })
-        map.on('mousemove', e => updateHoverRouteLines(e.lngLat.toArray()))
+        map.on('mousemove', e => {
+            const pos = e.lngLat.toArray()
+            updateHoverRouteLines(pos)
+
+            if (heldWaypointIndex !== undefined) {
+                const routeWaypoints = [...$routeWaypoints()]
+                routeWaypoints[heldWaypointIndex] = pos
+                setRouteWaypoints(routeWaypoints)
+            }
+        })
+        map.on('mouseup', () => {
+            if (heldWaypointIndex === undefined) return
+            heldWaypointIndex = undefined
+            setRouteDirty()
+        })
     }
 
     const loadTracks = async () => {
