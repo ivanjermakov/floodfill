@@ -513,11 +513,9 @@ const Main: Component = () => {
         }
 
         setTrackActive(undefined)
-
-        tracks
-            .filter(track => map.getLayer(track.name))
-            .forEach(track => map.setLayoutProperty(track.name, 'visibility', mode === 'track' ? 'visible' : 'none'))
-        map.setLayoutProperty('nodes', 'visibility', mode === 'track' ? 'visible' : 'none')
+        ;['nodes', ...tracks.map(t => t.name)]
+            .filter(id => map.getLayer(id))
+            .forEach(layer => map.setLayoutProperty(layer, 'visibility', mode === 'track' ? 'visible' : 'none'))
     }
 
     const readFile = async (file: File, encoding: string = 'utf-8'): Promise<string> => {
