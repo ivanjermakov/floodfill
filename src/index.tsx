@@ -185,7 +185,7 @@ const Main: Component = () => {
             },
             paint: {
                 'circle-radius': 6,
-                'circle-color': pathColors[4]
+                'circle-color': pathColors[6]
             }
         })
         map.on('click', 'route-waypoints', e => {
@@ -671,9 +671,13 @@ const Main: Component = () => {
         }
 
         const blob = await canvas.convertToBlob({ type: 'image/png' })
+        downloadFile(blob, `track_result_${track.timestamp}.png`)
+    }
+
+    const downloadFile = (blob: Blob, name: string) => {
         const a = document.createElement('a')
         a.href = URL.createObjectURL(blob)
-        a.download = `track_result_${track.timestamp}.png`
+        a.download = name
         a.click()
         URL.revokeObjectURL(a.href)
     }
@@ -788,6 +792,26 @@ const Main: Component = () => {
         })
     }
 
+    const exportRoute = () => {
+        const name = 'route.gpx'
+        const route = $route()
+        const trackpoints = route
+            .flatMap(route => (route.geojson.features[0].geometry as LineString).coordinates)
+            .map(tp => `            <trkpt lon="${tp[0]}" lat="${tp[1]}"><ele>${tp[2]}</ele></trkpt>`)
+        const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx xmlns="http://www.topografix.com/GPX/1/1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd" version="1.1" creator="Flood Fill">
+    <trk>
+    <name>${name}</name>
+        <trkseg>
+${trackpoints.join('\n')}
+        </trkseg>
+    </trk>
+</gpx>`
+        console.debug('xml', xml)
+        const blob = new Blob([xml])
+        downloadFile(blob, name)
+    }
+
     onMount(mount)
     createEffect(updateTracks)
     createEffect(updateChart)
@@ -831,6 +855,13 @@ const Main: Component = () => {
                                 />
                                 <button type="button" onClick={() => importInput.click()}>
                                     Import GPX
+                                </button>
+                            </div>
+                        </Match>
+                        <Match when={$mode() === 'plan'}>
+                            <div class="group">
+                                <button type="button" onClick={exportRoute}>
+                                    Export GPX
                                 </button>
                             </div>
                         </Match>
