@@ -795,11 +795,15 @@ const Main: Component = () => {
     const exportRoute = () => {
         const name = 'route.gpx'
         const route = $route()
+        const waypoints = [...route.map(wp => wp.from), route.at(-1)!.to].map(
+            (wp, i) => `    <wpt lon="${wp[0]}" lat="${wp[1]}"><name>${i + 1}</name></wpt>`
+        )
         const trackpoints = route
             .flatMap(route => (route.geojson.features[0].geometry as LineString).coordinates)
             .map(tp => `            <trkpt lon="${tp[0]}" lat="${tp[1]}"><ele>${tp[2]}</ele></trkpt>`)
         const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <gpx xmlns="http://www.topografix.com/GPX/1/1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd" version="1.1" creator="Flood Fill">
+${waypoints.join('\n')}
     <trk>
     <name>${name}</name>
         <trkseg>
