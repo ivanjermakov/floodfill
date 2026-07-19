@@ -203,7 +203,7 @@ select {
 
         .track-active {
             width: 100%;
-            height: min(50%, 20rem);
+            height: min(100%, 50rem);
             display: flex;
             flex-direction: column;
             gap: .5rem;
