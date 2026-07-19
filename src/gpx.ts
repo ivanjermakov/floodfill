@@ -14,15 +14,21 @@ import { elevationAt } from './geotiff'
 export const elevationThreshold = 5
 export const averageSpeedWindowSeconds = 60
 
-export const parseGpx = async (name: string, data: string): Promise<Track> => {
+export const parseGpx = async (filename: string, data: string): Promise<Track> => {
     const stream = sax.createStream()
     const trackpoints: Trackpoint[] = []
     let currentPoint: Trackpoint | undefined
-    let ele = false
-    let time = false
+    let name: string | undefined
+    const tag = {
+        ele: false,
+        time: false,
+        name: false
+    }
 
     stream.on('opentag', node => {
-        if (node.name === 'TRKPT') {
+        if (node.name === 'NAME') {
+            tag.name = true
+        } else if (node.name === 'TRKPT') {
             currentPoint = {
                 position: [
                     Number.parseFloat(node.attributes.LON as string),
@@ -32,19 +38,23 @@ export const parseGpx = async (name: string, data: string): Promise<Track> => {
                 timestamp: undefined!
             }
         } else if (currentPoint) {
-            if (node.name === 'ELE') ele = true
-            if (node.name === 'TIME') time = true
+            if (node.name === 'ELE') tag.ele = true
+            if (node.name === 'TIME') tag.time = true
         }
     })
     stream.on('text', text => {
-        if (!currentPoint) return
-        if (ele) {
-            currentPoint.position[2] = Number.parseFloat(text.trim())
-            ele = false
+        if (tag.name) {
+            name = text
+            tag.name = false
         }
-        if (time) {
+        if (!currentPoint) return
+        if (tag.ele) {
+            currentPoint.position[2] = Number.parseFloat(text.trim())
+            tag.ele = false
+        }
+        if (tag.time) {
             currentPoint.timestamp = text
-            time = false
+            tag.time = false
         }
     })
     stream.on('closetag', name => {
@@ -95,7 +105,7 @@ export const parseGpx = async (name: string, data: string): Promise<Track> => {
     const position = trackpoints[0].position
     for (const point of trackpoints) {
         const p = point.position
-        const k = 0.5
+        const k = 0.8
         position[0] = position[0] * (1 - k) + p[0] * k
         position[1] = position[1] * (1 - k) + p[1] * k
         const kEle = 0.05
@@ -134,8 +144,9 @@ export const parseGpx = async (name: string, data: string): Promise<Track> => {
         const k = 0.5
         filtered[i + 1].speed = (1 - k) * filtered[i].speed! + k * filtered[i + 1].speed!
     }
+    console.log('track name', name)
     const track: Track = {
-        name: name.replace(/\.gpx$/, ''),
+        name: name ?? filename.replace(/\.gpx$/, ''),
         timestamp: trackpoints[0].timestamp,
         points: trackpoints,
         filtered,

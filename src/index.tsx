@@ -93,7 +93,7 @@ let chartSvg!: SVGSVGElement
 const chartMargin = { top: 10, right: 30, bottom: 20, left: 30 }
 const [$trackpointActive, setTrackpointActive] = createSignal<Trackpoint | undefined>()
 type Mode = 'track' | 'plan'
-const [$mode, setMode] = createSignal<Mode>('plan')
+const [$mode, setMode] = createSignal<Mode>('track')
 const [$routeWaypoints, setRouteWaypoints] = createSignal<Position[]>([])
 const [$routeDirty, setRouteDirty] = createSignal<void>(undefined, { equals: false })
 const [$route, setRoute] = createSignal<RouteSegment[]>([])
@@ -790,6 +790,13 @@ const Main: Component = () => {
                 }
             ]
         })
+
+        console.log(
+            route.map(wp => {
+                const props = wp.geojson.features[0].properties!
+                return [props['total-time'], props['track-length'], props['plain-ascend']]
+            })
+        )
     }
 
     const exportRoute = () => {
@@ -896,6 +903,7 @@ ${trackpoints.join('\n')}
                                                     }}
                                                 />
                                             </td>
+                                            <td>{track.name}</td>
                                             <td>{format(track.timestamp, 'yyyy-MM-dd HH:mm')}</td>
                                             <td class="number">{(track.distance / 1000).toFixed(1)}km</td>
                                             <td class="number">
