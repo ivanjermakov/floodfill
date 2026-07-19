@@ -89,8 +89,8 @@ const [$windowSize, setWindowSize] = createSignal<{ width: number; height: numbe
 const [$tracks, setTracks] = createSignal<Track[]>([])
 const [$trackHovered, setTrackHovered] = createSignal<Track | undefined>()
 const [$trackActive, setTrackActive] = createSignal<Track | undefined>()
-let chartSvg!: SVGSVGElement
-const chartMargin = { top: 10, right: 30, bottom: 20, left: 30 }
+let trackActiveSvg!: SVGSVGElement
+const trackActiveChartMargin = { top: 10, right: 30, bottom: 20, left: 30 }
 const [$trackpointActive, setTrackpointActive] = createSignal<Trackpoint | undefined>()
 type Mode = 'track' | 'plan'
 const [$mode, setMode] = createSignal<Mode>('track')
@@ -334,7 +334,7 @@ const Main: Component = () => {
         console.debug(tracks)
     }
 
-    const updateChart = () => {
+    const updateD3 = () => {
         $windowSize()
         const trackActive = $trackActive()
         const tracks = $tracks()
@@ -354,16 +354,17 @@ const Main: Component = () => {
 
         if (!trackActive) return
 
-        const width = chartSvg.clientWidth
-        const height = chartSvg.clientHeight
+        const width = trackActiveSvg.clientWidth
+        const height = trackActiveSvg.clientHeight
 
-        chartSvg.addEventListener('mousemove', e => {
-            if (e.offsetX < chartMargin.left || e.offsetX > width - chartMargin.right) {
+        trackActiveSvg.addEventListener('mousemove', e => {
+            if (e.offsetX < trackActiveChartMargin.left || e.offsetX > width - trackActiveChartMargin.right) {
                 setTrackpointActive(undefined)
                 return
             }
             const idx = Math.floor(
-                ((e.offsetX - chartMargin.left) / (width - chartMargin.left - chartMargin.right)) *
+                ((e.offsetX - trackActiveChartMargin.left) /
+                    (width - trackActiveChartMargin.left - trackActiveChartMargin.right)) *
                     trackActive.filtered.length
             )
             if (idx < 0 || idx >= trackActive.filtered.length) {
@@ -372,42 +373,41 @@ const Main: Component = () => {
             }
             setTrackpointActive(trackActive.filtered[idx])
         })
-        chartSvg.addEventListener('mouseleave', () => setTrackpointActive(undefined))
+        trackActiveSvg.addEventListener('mouseleave', () => setTrackpointActive(undefined))
 
-        const chart = select(chartSvg)
         const elevationData = trackActive.filtered.map(p => ({ date: new Date(p.timestamp), value: p.position[2] }))
         const xScale = scaleTime()
             .domain(extent(elevationData, d => d.date) as [Date, Date])
-            .range([chartMargin.left, width - chartMargin.right])
+            .range([trackActiveChartMargin.left, width - trackActiveChartMargin.right])
 
         const elevationScale = scaleLinear()
             .domain([min(elevationData, d => d.value)!, max(elevationData, d => d.value)!])
-            .range([height - chartMargin.top - chartMargin.bottom, 0])
+            .range([height - trackActiveChartMargin.top - trackActiveChartMargin.bottom, 0])
         const elevationLine = line<{ date: Date; value: number }>()
             .x(d => xScale(d.date))
             .y(d => elevationScale(d.value))
 
-        chart.selectChildren().remove()
-        chart
+        select(trackActiveSvg).selectChildren().remove()
+        select(trackActiveSvg)
             .append('g')
-            .attr('transform', `translate(0, ${height - chartMargin.bottom})`)
+            .attr('transform', `translate(0, ${height - trackActiveChartMargin.bottom})`)
             .call(
                 axisBottom(xScale)
                     .tickFormat(d => format(d as Date, 'HH:mm'))
                     .ticks(20)
             )
 
-        chart
+        select(trackActiveSvg)
             .append('path')
             .datum(elevationData)
             .attr('fill', 'none')
             .attr('stroke', pathColors[0])
             .attr('stroke-width', 1)
-            .attr('transform', `translate(0, ${chartMargin.top})`)
+            .attr('transform', `translate(0, ${trackActiveChartMargin.top})`)
             .attr('d', elevationLine)
-        chart
+        select(trackActiveSvg)
             .append('g')
-            .attr('transform', `translate(${chartMargin.left}, ${chartMargin.top})`)
+            .attr('transform', `translate(${trackActiveChartMargin.left}, ${trackActiveChartMargin.top})`)
             .call(axisLeft(elevationScale).ticks(height / 30))
 
         if (trackActive.filtered[0].speed !== undefined) {
@@ -417,18 +417,18 @@ const Main: Component = () => {
             }))
             const speedScale = scaleLinear()
                 .domain([0, Math.min(50, max(speedData, d => d.value)!)])
-                .range([height - chartMargin.top - chartMargin.bottom, 0])
+                .range([height - trackActiveChartMargin.top - trackActiveChartMargin.bottom, 0])
             const speedLine = line<{ date: Date; value: number }>()
                 .x(d => xScale(d.date))
                 .y(d => speedScale(d.value))
-            chart
+            select(trackActiveSvg)
                 .append('path')
                 .datum(speedData)
                 .attr('fill', 'none')
                 .attr('stroke', pathColors[1])
                 .attr('opacity', 0.3)
                 .attr('stroke-width', 1)
-                .attr('transform', `translate(0, ${chartMargin.top})`)
+                .attr('transform', `translate(0, ${trackActiveChartMargin.top})`)
                 .attr('d', speedLine)
 
             const avgSpeedData = []
@@ -438,18 +438,18 @@ const Main: Component = () => {
                 if (Number.isNaN(avg)) avg = 0
                 avgSpeedData.push({ date: speedData[i].date, value: avg })
             }
-            chart
+            select(trackActiveSvg)
                 .append('path')
                 .datum(avgSpeedData)
                 .attr('fill', 'none')
                 .attr('stroke', pathColors[1])
                 .attr('stroke-width', 1)
-                .attr('transform', `translate(0, ${chartMargin.top})`)
+                .attr('transform', `translate(0, ${trackActiveChartMargin.top})`)
                 .attr('d', speedLine)
 
-            chart
+            select(trackActiveSvg)
                 .append('g')
-                .attr('transform', `translate(${width - chartMargin.right}, ${chartMargin.top})`)
+                .attr('transform', `translate(${width - trackActiveChartMargin.right}, ${trackActiveChartMargin.top})`)
                 .call(axisRight(speedScale).ticks(height / 30))
         }
     }
@@ -467,9 +467,9 @@ const Main: Component = () => {
             return
         }
         const tp = $trackpointActive()
-        const chart = select(chartSvg)
-        const width = chartSvg.clientWidth
-        const height = chartSvg.clientHeight
+        const chart = select(trackActiveSvg)
+        const width = trackActiveSvg.clientWidth
+        const height = trackActiveSvg.clientHeight
 
         let gActive: Selection<any, any, any, any> = chart.selectChild('.active')
         gActive.remove()
@@ -480,9 +480,9 @@ const Main: Component = () => {
         gActive = chart.append('g').attr('class', 'active')
 
         const x =
-            chartMargin.left +
+            trackActiveChartMargin.left +
             (trackActive.filtered.indexOf(tp) / trackActive.filtered.length) *
-                (width - chartMargin.left - chartMargin.right)
+                (width - trackActiveChartMargin.left - trackActiveChartMargin.right)
         gActive
             .append('line')
             .attr('x1', x)
@@ -825,7 +825,7 @@ ${trackpoints.join('\n')}
 
     onMount(mount)
     createEffect(updateTracks)
-    createEffect(updateChart)
+    createEffect(updateD3)
     createEffect(updateActive)
     createEffect(updateHovered)
     createEffect(updateMode)
@@ -952,7 +952,7 @@ ${trackpoints.join('\n')}
                                         : '\u00a0'}
                                 </span>
                             </header>
-                            <svg ref={chartSvg} />
+                            <svg ref={trackActiveSvg} />
                         </div>
                     </Show>
                 </Show>
