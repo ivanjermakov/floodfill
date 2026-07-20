@@ -94,10 +94,10 @@ let trackActiveSvg!: SVGSVGElement
 const trackActiveMargin = { top: 10, right: 30, bottom: 20, left: 30 }
 const [$trackpointActive, setTrackpointActive] = createSignal<Trackpoint | undefined>()
 let dataSvg!: SVGSVGElement
-const dataMargin = { top: 10, right: 20, bottom: 20, left: 30 }
+const dataMargin = { top: 10, right: 20, bottom: 20, left: 40 }
 
 type Mode = 'track' | 'data' | 'plan'
-const [$mode, setMode] = createSignal<Mode>('data')
+const [$mode, setMode] = createSignal<Mode>('track')
 const [$routeWaypoints, setRouteWaypoints] = createSignal<Position[]>([])
 const [$routeDirty, setRouteDirty] = createSignal<void>(undefined, { equals: false })
 const [$route, setRoute] = createSignal<RouteSegment[]>([])
@@ -494,11 +494,7 @@ const Main: Component = () => {
         select(dataSvg)
             .append('g')
             .attr('transform', `translate(${dataMargin.left}, ${dataMargin.top})`)
-            .call(
-                axisLeft(speedScale)
-                    .ticks(height / 30)
-                    .tickFormat(v => Number(v).toFixed(0))
-            )
+            .call(axisLeft(speedScale).ticks(height / 30))
 
         const [minSpeed, maxSpeed] = speedScale.domain()
         const ticks = Array.from(
