@@ -305,9 +305,9 @@ const Main: Component = () => {
         tracks.sort((a, b) => (a.timestamp < b.timestamp ? 1 : -1))
         await Promise.all(
             tracks.toReversed().map(async track => {
-                if (map.getLayer(track.name)) return
+                if (map.getLayer(track.timestamp)) return
                 map.addLayer({
-                    id: track.name,
+                    id: track.timestamp,
                     type: 'line',
                     source: {
                         type: 'geojson',
@@ -326,7 +326,7 @@ const Main: Component = () => {
                         }
                     },
                     paint: {
-                        'line-color': pathColors[Math.floor(hash(track.name) % pathColors.length)],
+                        'line-color': pathColors[Math.floor(hash(track.timestamp) % pathColors.length)],
                         'line-opacity-transition': { duration: 0 },
                         'line-width': 2
                     }
@@ -351,12 +351,12 @@ const Main: Component = () => {
         if (mode !== 'track') return
 
         tracks
-            .filter(track => map.getLayer(track.name))
+            .filter(track => map.getLayer(track.timestamp))
             .forEach(track =>
                 map.setLayoutProperty(
-                    track.name,
+                    track.timestamp,
                     'visibility',
-                    trackActive === undefined || track.name === trackActive.name ? 'visible' : 'none'
+                    trackActive === undefined || track.timestamp === trackActive.timestamp ? 'visible' : 'none'
                 )
             )
 
@@ -522,7 +522,7 @@ const Main: Component = () => {
             .attr('cx', d => xScale(d.date))
             .attr('cy', d => speedScale(d.value) + dataMargin.top)
             .attr('r', (_, i) => distanceScale(distanceData[i]))
-            .attr('fill', (_, i) => pathColors[Math.floor(hash(tracks[i].name) % pathColors.length)])
+            .attr('fill', (_, i) => pathColors[Math.floor(hash(tracks[i].timestamp) % pathColors.length)])
     }
 
     const updateActive = () => {
@@ -576,7 +576,7 @@ const Main: Component = () => {
                 },
                 paint: {
                     'circle-radius': 6,
-                    'circle-color': pathColors[Math.floor(hash(trackActive.name) % pathColors.length)]
+                    'circle-color': pathColors[Math.floor(hash(trackActive.timestamp) % pathColors.length)]
                 }
             })
         }
@@ -601,12 +601,12 @@ const Main: Component = () => {
         const trackActive = $trackActive()
 
         tracks
-            .filter(track => map.getLayer(track.name))
+            .filter(track => map.getLayer(track.timestamp))
             .forEach(track =>
                 map.setPaintProperty(
-                    track.name,
+                    track.timestamp,
                     'line-opacity',
-                    trackActive || trackHovered === undefined || track.name === trackHovered.name ? 1 : 0.3
+                    trackActive || trackHovered === undefined || track.timestamp === trackHovered.timestamp ? 1 : 0.3
                 )
             )
     }
@@ -633,7 +633,7 @@ const Main: Component = () => {
         }
 
         setTrackActive(undefined)
-        ;['nodes', ...tracks.map(t => t.name)]
+        ;['nodes', ...tracks.map(t => t.timestamp)]
             .filter(id => map.getLayer(id))
             .forEach(layer => map.setLayoutProperty(layer, 'visibility', mode === 'track' ? 'visible' : 'none'))
     }
@@ -976,7 +976,7 @@ ${trackpoints.join('\n')}
                                                 <CgShapeCircle
                                                     style={{
                                                         color: pathColors[
-                                                            Math.floor(hash(track.name) % pathColors.length)
+                                                            Math.floor(hash(track.timestamp) % pathColors.length)
                                                         ]
                                                     }}
                                                 />
