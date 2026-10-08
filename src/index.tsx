@@ -719,20 +719,25 @@ const Main: Component = () => {
         ctx.textAlign = 'center'
         ctx.fillStyle = 'white'
 
-        let fontSize = 86
         const lineHeight = 1.5
-        ctx.font = `${fontSize}px Space Mono`
+
+        let fontSize = 86
         let height = canvas.height / 2 - fontSize
+
+        fontSize = 86
+        ctx.font = `${fontSize}px Space Mono`
         ctx.fillText(`${(track.distance / 1000).toFixed(1)} km`, canvas.width / 2, height)
         height += lineHeight * fontSize
 
         fontSize = 48
         ctx.font = `${fontSize}px Space Mono`
+        ctx.fillText(track.name, canvas.width / 2, height)
+        height += lineHeight * fontSize
+
         ctx.fillText(format(track.timestamp, 'MMMM do yyyy, HH:mm'), canvas.width / 2, height)
         height += lineHeight * fontSize
 
         if (track.duration) {
-            ctx.font = `${fontSize}px Space Mono`
             ctx.fillText(
                 `${formatDuration(track.duration)} at avg ${averageSpeed(track).toFixed(1)}kph`,
                 canvas.width / 2,
